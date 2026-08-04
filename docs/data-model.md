@@ -43,6 +43,8 @@
 | Ключ | Пример значения | Описание |
 |---|---|---|
 | rom_library_paths | `["/home/user/roms/nes"]` | Папки, которые сканируются на ROM'ы |
-| metadata_source | `"thegamesdb"` | Источник метаданных/обложек |
+| metadata_source | `"emu-land.net"` | Источник метаданных/обложек — https://www.emu-land.net/consoles/dendy/roms |
 | controls | `{ "p1": {...} }` | Раскладка управления |
-| theme | `"dark"` | Тема оформления |
+| theme | `"light" \| "dark" \| "system"` | Тема оформления (вкладка «Лаунчер») |
+
+Версия лаунчера в настройках не хранится в БД — читается из `package.json` / `Cargo.toml` (`tauri::generate_context!().package_info()`) и выводится только для отображения.

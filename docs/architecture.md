@@ -26,7 +26,7 @@ Rust-часть отвечает за всё, что требует доступ
 - **`commands/emulator.rs`** — запуск/пауза/сброс эмулятора, управление save state (создание/загрузка слотов)
 - **`commands/saves.rs`** — история запусков, время в игре, статистика прогресса
 - **`db/`** — слой доступа к SQLite (модели, миграции, запросы)
-- **`metadata/scraper.rs`** — скачивание метаданных и обложек игр по названию ROM с внешнего источника (например, TheGamesDB / libretro thumbnails)
+- **`metadata/scraper.rs`** — скачивание метаданных и обложек игр по названию ROM с [emu-land.net](https://www.emu-land.net/consoles/dendy/roms) (раздел Dendy/NES)
 
 ## Frontend (`src`)
 
