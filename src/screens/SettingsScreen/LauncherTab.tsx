@@ -22,6 +22,16 @@ export function LauncherTab({ theme, onThemeChange }: LauncherTabProps) {
     getLauncherVersion().then(setVersion);
   }, []);
 
+  // "light"/"dark" переопределяют системную тему явно (см. src/styles/index.css);
+  // "system" снимает атрибут, и CSS сам следует prefers-color-scheme.
+  useEffect(() => {
+    if (theme === "system") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  }, [theme]);
+
   return (
     <div>
       <h3>Тема</h3>

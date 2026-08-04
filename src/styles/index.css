@@ -1,8 +1,95 @@
+/* Палитра, типографика и токены — см. docs/design.md */
+
 :root {
+  color-scheme: light;
+
+  /* Цвета — светлая тема (значение по умолчанию) */
+  --color-bg: #F7F7F9;
+  --color-panel: #FFFFFF;
+  --color-panel-hover: #F0F1F5;
+  --color-border: #E3E4E8;
+  --color-text: #17181C;
+  --color-text-secondary: #6B6D78;
+  --color-accent: #2F6BEF;
+  --color-accent-hover: #255BD1;
+  --color-success: #3DBE72;
+  --color-error: #E15554;
+
+  /* Типографика */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  --font-size-title: 20px;
+  --font-size-card-title: 14px;
+  --font-size-body: 14px;
+  --font-size-secondary: 12px;
+  --line-height-body: 1.5;
+
+  /* Форма и сетка */
+  --radius-md: 8px;
+  --radius-sm: 4px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Анимации */
+  --duration-transition: 150ms;
+  --duration-hover: 100ms;
+}
+
+/* Тёмная тема по системным настройкам, пока пользователь не выбрал явную тему */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+
+    --color-bg: #121317;
+    --color-panel: #1B1D23;
+    --color-panel-hover: #22242C;
+    --color-border: #2A2C34;
+    --color-text: #F2F2F4;
+    --color-text-secondary: #9A9CA6;
+    --color-accent: #3D7EFF;
+    --color-accent-hover: #5A93FF;
+  }
+}
+
+/* Явный выбор темы в настройках лаунчера (LauncherTab) */
+:root[data-theme="dark"] {
   color-scheme: dark;
+
+  --color-bg: #121317;
+  --color-panel: #1B1D23;
+  --color-panel-hover: #22242C;
+  --color-border: #2A2C34;
+  --color-text: #F2F2F4;
+  --color-text-secondary: #9A9CA6;
+  --color-accent: #3D7EFF;
+  --color-accent-hover: #5A93FF;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: #F7F7F9;
+  --color-panel: #FFFFFF;
+  --color-panel-hover: #F0F1F5;
+  --color-border: #E3E4E8;
+  --color-text: #17181C;
+  --color-text-secondary: #6B6D78;
+  --color-accent: #2F6BEF;
+  --color-accent-hover: #255BD1;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  transition: background var(--duration-transition), color var(--duration-transition);
 }

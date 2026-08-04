@@ -13,6 +13,7 @@
 
 - [Архитектура](docs/architecture.md)
 - [Экраны и UI](docs/screens.md)
+- [Внешний вид](docs/design.md)
 - [Модель данных](docs/data-model.md)
 - [Roadmap](docs/roadmap.md)
 
