@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NES Launcher",
+  "version": "0.1.0",
+  "identifier": "com.nes-launhder.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "NES Launcher",
+        "width": 1280,
+        "height": 800
+      }
+    ]
+  }
+}
