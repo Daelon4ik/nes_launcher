@@ -32,6 +32,7 @@ div.detailsCover {
 }
 
 .detailsTitle {
+  font-family: var(--font-title);
   font-size: var(--font-size-title);
   font-weight: 600;
   margin: 0;
@@ -223,6 +224,7 @@ div.detailsCover {
 }
 
 .libraryTitle {
+  font-family: var(--font-title);
   margin: 0;
   font-size: var(--font-size-title);
   font-weight: 600;

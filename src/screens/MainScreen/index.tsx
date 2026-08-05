@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { open } from "@tauri-apps/plugin-dialog";
 import { GameCard } from "../../components/GameCard";
 import { InstallModal } from "./InstallModal";
-import { GearIcon } from "../../components/icons";
+import { Settings } from "lucide-react";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
@@ -203,7 +203,7 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
               aria-label="Настройки"
               disabled={modalOpen}
             >
-              <GearIcon />
+              <Settings size={18} />
             </button>
           </div>
         </header>
