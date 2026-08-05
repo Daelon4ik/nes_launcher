@@ -8,3 +8,8 @@ export function coverImageStyle(coverPath: string | null): CSSProperties | undef
   if (!coverPath) return undefined;
   return { backgroundImage: `url("${convertFileSrc(coverPath)}")` };
 }
+
+export function coverImageSrc(coverPath: string | null): string | undefined {
+  if (!coverPath) return undefined;
+  return convertFileSrc(coverPath);
+}

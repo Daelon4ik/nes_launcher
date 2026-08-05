@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { GameCard } from "../../components/GameCard";
+import { InstallModal } from "./InstallModal";
 import { GearIcon } from "../../components/icons";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
-import { coverImageStyle } from "../../utils/coverImage";
+import { coverImageStyle, coverImageSrc } from "../../utils/coverImage";
 import styles from "./MainScreen.module.css";
 
 function formatLastPlayed(lastPlayedAt: string | null): string {
@@ -26,6 +27,19 @@ function formatPlaytime(totalPlaytimeSeconds: number): string {
   return hours > 0 ? `В игре: ${hours} ч ${minutes} мин` : `В игре: ${minutes} мин`;
 }
 
+function formatPlayerMode(mode: Game["playerMode"]): string {
+  switch (mode) {
+    case "single":
+      return "1 игрок";
+    case "alternating":
+      return "2 игрока (по очереди)";
+    case "coop":
+      return "2 игрока (кооп)";
+    default:
+      return "Неизвестно";
+  }
+}
+
 interface MainScreenProps {
   onOpenSettings: () => void;
   onPlay: (game: Game) => void;
@@ -37,14 +51,21 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState<"all" | "single" | "alternating" | "coop">("all");
   const screenRef = useRef<HTMLDivElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
 
   useSpatialNavigation(screenRef);
 
+  const filteredGames = useMemo(
+    () => games.filter((game) => filterMode === "all" || game.playerMode === filterMode),
+    [games, filterMode],
+  );
+
   const selectedGame = useMemo(
-    () => games.find((game) => game.id === selectedId) ?? games[0] ?? null,
-    [games, selectedId],
+    () => filteredGames.find((game) => game.id === selectedId) ?? filteredGames[0] ?? null,
+    [filteredGames, selectedId],
   );
 
   const pendingDeleteGame = useMemo(
@@ -83,34 +104,33 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
   // при входе на экран ожидаемее оказаться в списке игр, а не сразу на запуске).
   useEffect(() => {
     const container = screenRef.current;
-    if (!container || games.length === 0) return;
+    if (!container || filteredGames.length === 0) return;
     if (container.contains(document.activeElement)) return;
     container.querySelector<HTMLElement>(`.${styles.grid} [data-nav]`)?.focus();
-  }, [games]);
+  }, [filteredGames]);
 
-  async function handleAddGames() {
-    const selected = await open({
-      multiple: true,
-      filters: [{ name: "NES ROM", extensions: ["nes"] }],
-    });
-    if (!selected) return;
-    const paths = Array.isArray(selected) ? selected : [selected];
-    await install(paths);
-  }
-
-  const modalOpen = pendingDeleteGame !== null;
+  const modalOpen = pendingDeleteGame !== null || isInstallModalOpen;
 
   return (
     <div className={styles.screen} ref={screenRef}>
       <aside className={styles.details}>
         {selectedGame ? (
           <>
-            <div className={styles.detailsCover} style={coverImageStyle(selectedGame.coverPath)} />
+            {selectedGame.coverPath ? (
+              <img 
+                src={coverImageSrc(selectedGame.coverPath)} 
+                className={styles.detailsCover} 
+                alt="" 
+              />
+            ) : (
+              <div className={styles.detailsCover} />
+            )}
             <h2 className={styles.detailsTitle}>{selectedGame.title}</h2>
             <p className={styles.description}>
               {selectedGame.description ?? "Описание пока не загружено."}
             </p>
             <ul className={styles.meta}>
+              <li>{formatPlayerMode(selectedGame.playerMode)}</li>
               <li>{formatLastPlayed(selectedGame.lastPlayedAt)}</li>
               <li>{formatPlaytime(selectedGame.totalPlaytimeSeconds)}</li>
             </ul>
@@ -154,11 +174,23 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
         <header className={styles.libraryHeader}>
           <h1 className={styles.libraryTitle}>Библиотека</h1>
           <div className={styles.headerActions}>
+            <select
+              className={styles.filterSelect}
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value as any)}
+              disabled={loading || modalOpen}
+              data-nav
+            >
+              <option value="all">Все игры</option>
+              <option value="coop">Кооп (2 игрока)</option>
+              <option value="alternating">По очереди (2 игрока)</option>
+              <option value="single">Соло игра</option>
+            </select>
             <button
               type="button"
               data-nav
               className={styles.ghostButton}
-              onClick={handleAddGames}
+              onClick={() => setIsInstallModalOpen(true)}
               disabled={loading || modalOpen}
             >
               {loading ? "Добавление…" : "Добавить игры"}
@@ -178,11 +210,11 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
 
         {error && <p className={styles.error}>{error}</p>}
 
-        {!loading && games.length === 0 ? (
-          <p className={styles.empty}>Библиотека пуста — добавьте игры кнопкой выше.</p>
+        {!loading && filteredGames.length === 0 ? (
+          <p className={styles.empty}>Библиотека пуста или нет игр, подходящих под фильтр.</p>
         ) : (
           <div className={styles.grid}>
-            {games.map((game) => (
+            {filteredGames.map((game) => (
               <GameCard
                 key={game.id}
                 game={game}
@@ -226,6 +258,13 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
             </div>
           </div>
         </div>
+      )}
+
+      {isInstallModalOpen && (
+        <InstallModal
+          onClose={() => setIsInstallModalOpen(false)}
+          onInstall={install}
+        />
       )}
     </div>
   );
