@@ -14,6 +14,7 @@
 | last_played_at | DATETIME NULL | Дата последнего запуска |
 | total_playtime_seconds | INTEGER | Суммарное время в игре |
 | added_at | DATETIME | Дата добавления в библиотеку |
+| player_mode | TEXT | `"single"` \| `"alternating"` \| `"coop"`. По умолчанию `"single"`, уточняется полем «Игроки» со страницы игры на emu-land.net (тем же скрапером, что тянет description/cover_path) |
 
 ## PlaySession
 

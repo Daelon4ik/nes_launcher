@@ -9,6 +9,8 @@ const USER_AGENT: &str = "Mozilla/5.0 (compatible; NESLauncher/0.1)";
 pub struct ScrapedMetadata {
     pub description: Option<String>,
     pub cover_url: Option<String>,
+    /// "single" | "alternating" | "coop" — см. `parse_player_mode`.
+    pub player_mode: Option<String>,
 }
 
 fn build_client() -> Result<reqwest::Client, String> {
@@ -112,7 +114,42 @@ async fn fetch_game_page(client: &reqwest::Client, url: &str) -> Result<ScrapedM
         .and_then(|el| el.value().attr("src"))
         .map(normalize_url);
 
-    Ok(ScrapedMetadata { description, cover_url })
+    // Строка вида «• Игроки: 2 (кооп)» лежит в общем блоке .finfo с другими
+    // полями (жанр, разработчик...) — ищем среди них по префиксу "Игроки".
+    let info_selector = Selector::parse(".finfo li").unwrap();
+    let player_mode = document
+        .select(&info_selector)
+        .filter_map(|el| {
+            let text: String = el.text().collect();
+            parse_player_mode(&text)
+        })
+        .next();
+
+    Ok(ScrapedMetadata { description, cover_url, player_mode })
+}
+
+/// Разбирает строку метаданных emu-land.net вида «Игроки: 1», «Игроки: 2 (по
+/// очереди)» или «Игроки: 2 (кооп)» в "single" | "alternating" | "coop".
+/// Возвращает None, если строка не про число игроков.
+fn parse_player_mode(text: &str) -> Option<String> {
+    let rest = text.trim().trim_start_matches('•').trim();
+    let rest = rest.strip_prefix("Игроки:")?;
+
+    let count: u32 = rest
+        .trim()
+        .split(|c: char| !c.is_ascii_digit())
+        .find(|s| !s.is_empty())?
+        .parse()
+        .ok()?;
+
+    let mode = if count <= 1 {
+        "single"
+    } else if rest.to_lowercase().contains("кооп") {
+        "coop"
+    } else {
+        "alternating"
+    };
+    Some(mode.to_string())
 }
 
 fn normalize_url(src: &str) -> String {
@@ -129,6 +166,30 @@ fn normalize_url(src: &str) -> String {
 mod tests {
     use super::*;
 
+    // Реальные строки, снятые со страниц emu-land.net (Metroid, Super Mario Bros, Contra).
+    #[test]
+    fn parses_single_player() {
+        assert_eq!(parse_player_mode("• Игроки: 1 "), Some("single".to_string()));
+    }
+
+    #[test]
+    fn parses_alternating_two_player() {
+        assert_eq!(
+            parse_player_mode("• Игроки: 2 (по очереди)"),
+            Some("alternating".to_string())
+        );
+    }
+
+    #[test]
+    fn parses_coop_two_player() {
+        assert_eq!(parse_player_mode("• Игроки: 2 (кооп)"), Some("coop".to_string()));
+    }
+
+    #[test]
+    fn ignores_unrelated_info_lines() {
+        assert_eq!(parse_player_mode("• Жанр: platform, shooter, run'n'gun"), None);
+    }
+
     // Реальные запросы на emu-land.net — не входят в обычный `cargo test`, только
     // `cargo test -- --ignored`. Полезно перепроверить руками, если сайт поменяет разметку.
     #[tokio::test]
@@ -139,6 +200,7 @@ mod tests {
         assert!(description.to_lowercase().contains("контра"), "got: {description}");
         let cover_url = result.cover_url.expect("cover url should be found");
         assert!(cover_url.starts_with("https://ss.emu-land.net/"), "got: {cover_url}");
+        assert_eq!(result.player_mode.as_deref(), Some("coop"), "got: {:?}", result.player_mode);
     }
 
     #[tokio::test]

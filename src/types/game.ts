@@ -8,4 +8,5 @@ export interface Game {
   lastPlayedAt: string | null;
   totalPlaytimeSeconds: number;
   addedAt: string;
+  playerMode: "single" | "alternating" | "coop";
 }
