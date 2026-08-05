@@ -8,6 +8,7 @@ import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/sa
 import { disconnect as disconnectNetplay } from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
+import { getJsnesKeysConfig } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
 import type { NetplaySession } from "../../types/netplay";
@@ -157,6 +158,14 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
+        // Применяем сохраненные настройки управления клавиатурой
+        browserRef.current.keyboard.setKeys(getJsnesKeysConfig());
+
+        // jsnes по умолчанию отключает клавиатуру для игрока, если к нему привязан геймпад.
+        // Переопределяем коллбеки клавиатуры, чтобы она работала всегда, независимо от геймпадов.
+        browserRef.current.keyboard.onButtonDown = browserRef.current.nes.buttonDown;
+        browserRef.current.keyboard.onButtonUp = browserRef.current.nes.buttonUp;
+
         fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
       })
@@ -188,17 +197,21 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   // jsnes не конфигурирует геймпад сам (ждёт мастер настройки нажатием кнопок) —
   // подключаем стандартный маппинг Gamepad API, чтобы геймпад заработал сразу.
   useEffect(() => {
-    function configure(gamepad: Gamepad) {
-      browserRef.current?.gamepad.setGamepadConfig(standardGamepadConfig(gamepad.id));
+    function configureAllGamepads() {
+      const pads = Array.from(navigator.getGamepads()).filter((p): p is Gamepad => p !== null);
+      if (pads.length > 0 && browserRef.current) {
+        browserRef.current.gamepad.setGamepadConfig(
+          standardGamepadConfig(pads.map((p) => p.id))
+        );
+      }
     }
-    for (const gamepad of navigator.getGamepads()) {
-      if (gamepad) configure(gamepad);
-    }
-    function handleConnect(e: GamepadEvent) {
-      configure(e.gamepad);
-    }
-    window.addEventListener("gamepadconnected", handleConnect);
-    return () => window.removeEventListener("gamepadconnected", handleConnect);
+    configureAllGamepads();
+    window.addEventListener("gamepadconnected", configureAllGamepads);
+    window.addEventListener("gamepaddisconnected", configureAllGamepads);
+    return () => {
+      window.removeEventListener("gamepadconnected", configureAllGamepads);
+      window.removeEventListener("gamepaddisconnected", configureAllGamepads);
+    };
   }, [status]);
 
   // LB должен открывать оверлей и тогда, когда тот ещё закрыт — опрашиваем
