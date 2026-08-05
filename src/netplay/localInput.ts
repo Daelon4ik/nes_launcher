@@ -3,29 +3,9 @@
 // переиспользовать для netplay (см. docs/netplay.md), поэтому читаем ввод сами
 // и явно применяем к нужному игроку через NES.buttonDown/buttonUp.
 import { Controller, type NES } from "jsnes";
+import { getNetplayKeyMap } from "../utils/keyboardControls";
 
-// Совпадает с дефолтной раскладкой jsnes для игрока 1
-// (node_modules/jsnes/src/browser/keyboard.js) — единая раскладка независимо
-// от роли (хост/клиент), меняется только то, какому NES-контроллеру уходит ввод.
-const KEY_TO_BUTTON: Record<string, number> = {
-  ArrowUp: Controller.BUTTON_UP,
-  ArrowDown: Controller.BUTTON_DOWN,
-  ArrowLeft: Controller.BUTTON_LEFT,
-  ArrowRight: Controller.BUTTON_RIGHT,
-  KeyW: Controller.BUTTON_UP,
-  KeyS: Controller.BUTTON_DOWN,
-  KeyA: Controller.BUTTON_LEFT,
-  KeyD: Controller.BUTTON_RIGHT,
-  KeyX: Controller.BUTTON_A,
-  KeyE: Controller.BUTTON_A,
-  KeyZ: Controller.BUTTON_B,
-  KeyQ: Controller.BUTTON_B,
-  Enter: Controller.BUTTON_START,
-  Space: Controller.BUTTON_START,
-  ControlRight: Controller.BUTTON_SELECT,
-  ShiftLeft: Controller.BUTTON_SELECT,
-  ShiftRight: Controller.BUTTON_SELECT,
-};
+let KEY_TO_BUTTON: Record<string, number> = {};
 
 // Совпадает с src/utils/jsnesGamepad.ts (стандартная раскладка Gamepad API).
 const GAMEPAD_BUTTON_TO_NES: Record<number, number> = {
@@ -48,6 +28,7 @@ export class LocalInputReader {
   private held = new Set<string>();
 
   constructor() {
+    KEY_TO_BUTTON = getNetplayKeyMap();
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
   }

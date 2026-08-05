@@ -2,11 +2,12 @@
 // скрытый по умолчанию и вызываемый по Tab (клавиатура) / LB (геймпад).
 // См. docs/screens.md#4-emulator-screen
 import { useEffect, useRef, useState } from "react";
-import { Browser, Controller } from "jsnes";
+import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
 import { disconnect as disconnectNetplay } from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
+import { getJsnesKeysConfig } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
 import type { NetplaySession } from "../../types/netplay";
@@ -112,18 +113,8 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
-        
-        // Добавляем WASD-управление для второго игрока с клавиатуры
-        const keys = browserRef.current.keyboard.keys;
-        keys[87] = [2, Controller.BUTTON_UP, "W"];
-        keys[83] = [2, Controller.BUTTON_DOWN, "S"];
-        keys[65] = [2, Controller.BUTTON_LEFT, "A"];
-        keys[68] = [2, Controller.BUTTON_RIGHT, "D"];
-        keys[81] = [2, Controller.BUTTON_B, "Q"];
-        keys[69] = [2, Controller.BUTTON_A, "E"];
-        keys[16] = [2, Controller.BUTTON_SELECT, "Shift"];
-        keys[32] = [2, Controller.BUTTON_START, "Space"];
-        browserRef.current.keyboard.setKeys(keys);
+        // Применяем сохраненные настройки управления клавиатурой
+        browserRef.current.keyboard.setKeys(getJsnesKeysConfig());
 
         fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
