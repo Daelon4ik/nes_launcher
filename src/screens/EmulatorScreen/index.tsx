@@ -1,12 +1,15 @@
 // Экран запущенной игры: канва на весь экран + оверлей (пауза, save/load state, выход),
 // скрытый по умолчанию и вызываемый по Tab (клавиатура) / LB (геймпад).
-// См. docs/screens.md#3-emulator-screen
+// См. docs/screens.md#4-emulator-screen
 import { useEffect, useRef, useState } from "react";
 import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
+import { disconnect as disconnectNetplay } from "../../api/netplay";
+import { NetplayEngine } from "../../netplay/engine";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
+import type { NetplaySession } from "../../types/netplay";
 import styles from "./EmulatorScreen.module.css";
 
 const LB_BUTTON = 4; // геймпад: не занят jsnes (тот использует только 0,1,8,9,12-15)
@@ -32,10 +35,11 @@ function fitScreenPixelPerfect(stage: HTMLDivElement) {
 
 interface EmulatorScreenProps {
   game: Game;
+  netplay?: NetplaySession | null;
   onExit: () => void;
 }
 
-export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
+export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -43,6 +47,7 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const browserRef = useRef<Browser | null>(null);
+  const netplayEngineRef = useRef<NetplayEngine | null>(null);
   const sessionStartedAt = useRef(Date.now());
 
   // Оверлей всегда смонтирован (скрывается через display:none), чтобы этот хук
@@ -63,6 +68,37 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (netplay) {
+      // ROM уже прочитан в лобби (там же проверена чек-сумма с партнёром) —
+      // повторно читать не нужно, к тому же движок должен грузить ровно те же
+      // байты, что были захэшированы, без риска рассинхрона из-за гонки.
+      if (!stageRef.current) return;
+      netplayEngineRef.current = new NetplayEngine({
+        container: stageRef.current,
+        romData: netplay.romData,
+        localPlayer: netplay.localPlayer,
+        onError: (err) => {
+          if (cancelled) return;
+          setErrorMessage(String(err));
+          setStatus("error");
+        },
+        onPeerDisconnected: () => {
+          if (cancelled) return;
+          setErrorMessage("Партнёр отключился.");
+          setStatus("error");
+        },
+      });
+      fitScreenPixelPerfect(stageRef.current);
+      setStatus("playing");
+
+      return () => {
+        cancelled = true;
+        netplayEngineRef.current?.destroy();
+        netplayEngineRef.current = null;
+        disconnectNetplay().catch(() => {});
+      };
+    }
 
     launchGame(game.id)
       .then(readRomBytes)
@@ -91,7 +127,8 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
       browserRef.current?.destroy();
       browserRef.current = null;
     };
-  }, [game.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.id, netplay]);
 
   useEffect(() => {
     if (status !== "playing" || !stageRef.current) return;
@@ -185,7 +222,9 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
           <div className={styles.stageOverlayText}>
             {status === "loading" && <p className={styles.stagePath}>Загрузка…</p>}
             {status === "error" && (
-              <p className={styles.stageError}>Не удалось загрузить ROM: {errorMessage}</p>
+              <p className={styles.stageError}>
+                {netplay ? errorMessage : `Не удалось загрузить ROM: ${errorMessage}`}
+              </p>
             )}
           </div>
         )}
@@ -202,7 +241,8 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
           data-nav
           className={styles.overlayButton}
           onClick={handleTogglePause}
-          disabled={status !== "playing"}
+          disabled={status !== "playing" || Boolean(netplay)}
+          title={netplay ? "Пауза недоступна в кооп-режиме" : undefined}
         >
           {paused ? "Продолжить" : "Пауза"}
         </button>

@@ -16,3 +16,19 @@ export function getRomLibraryPaths(): Promise<string[]> {
 export function setRomLibraryPaths(paths: string[]): Promise<void> {
   return invoke("set_rom_library_paths", { paths });
 }
+
+export function getNetworkDisplayName(): Promise<string> {
+  return invoke("get_network_display_name");
+}
+
+export function setNetworkDisplayName(name: string): Promise<void> {
+  return invoke("set_network_display_name", { name });
+}
+
+export function getNetworkHostPort(): Promise<number> {
+  return invoke("get_network_host_port");
+}
+
+export function setNetworkHostPort(port: number): Promise<void> {
+  return invoke("set_network_host_port", { port });
+}

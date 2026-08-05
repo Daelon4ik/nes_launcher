@@ -1,3 +1,17 @@
+diff --git a/node_modules/jsnes/package.json b/node_modules/jsnes/package.json
+index 0000000..0000000 100644
+--- a/node_modules/jsnes/package.json
++++ b/node_modules/jsnes/package.json
+@@ -11,7 +11,8 @@
+       "import": "./src/index.js",
+       "require": "./dist/jsnes.js",
+       "default": "./src/index.js"
+-    }
++    },
++    "./*": "./*"
+   },
+   "repository": {
+     "type": "git",
 diff --git a/node_modules/jsnes/src/ppu/index.js b/node_modules/jsnes/src/ppu/index.js
 index 0000000..0000000 100644
 --- a/node_modules/jsnes/src/ppu/index.js

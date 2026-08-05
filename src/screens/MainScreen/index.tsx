@@ -29,9 +29,10 @@ function formatPlaytime(totalPlaytimeSeconds: number): string {
 interface MainScreenProps {
   onOpenSettings: () => void;
   onPlay: (game: Game) => void;
+  onCoop: (game: Game) => void;
 }
 
-export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
+export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) {
   const { games, loading, error, install, remove } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
@@ -122,6 +123,15 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
                 disabled={modalOpen}
               >
                 Играть
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={styles.coopButton}
+                onClick={() => onCoop(selectedGame)}
+                disabled={modalOpen}
+              >
+                Кооп
               </button>
               <button
                 type="button"

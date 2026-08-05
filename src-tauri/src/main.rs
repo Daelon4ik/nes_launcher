@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod metadata;
+mod netplay;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -13,6 +14,7 @@ fn main() {
             std::fs::create_dir_all(&app_dir)?;
             let conn = db::init(&app_dir.join("nes_launhder.db"))?;
             app.manage(Mutex::new(conn));
+            app.manage(Mutex::new(netplay::NetplayState::default()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +30,17 @@ fn main() {
             commands::settings::set_theme,
             commands::settings::get_rom_library_paths,
             commands::settings::set_rom_library_paths,
+            commands::settings::get_network_display_name,
+            commands::settings::set_network_display_name,
+            commands::settings::get_network_host_port,
+            commands::settings::set_network_host_port,
+            commands::netplay::netplay_start_hosting,
+            commands::netplay::netplay_stop_hosting,
+            commands::netplay::netplay_start_discovery,
+            commands::netplay::netplay_stop_discovery,
+            commands::netplay::netplay_join_host,
+            commands::netplay::netplay_send_input,
+            commands::netplay::netplay_disconnect,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

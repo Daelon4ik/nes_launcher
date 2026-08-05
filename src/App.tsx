@@ -2,28 +2,42 @@ import { useState } from "react";
 import { MainScreen } from "./screens/MainScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { EmulatorScreen } from "./screens/EmulatorScreen";
+import { NetplayLobbyScreen } from "./screens/NetplayLobbyScreen";
 import type { Game } from "./types/game";
+import type { NetplaySession } from "./types/netplay";
 
-type Screen = "main" | "settings" | "emulator";
+type Screen = "main" | "settings" | "emulator" | "netplay-lobby";
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("main");
   const [activeGame, setActiveGame] = useState<Game | null>(null);
+  const [netplaySession, setNetplaySession] = useState<NetplaySession | null>(null);
 
-  if (screen === "settings") {
-    return <SettingsScreen onBack={() => setScreen("main")} />;
+  function returnToMain() {
+    setScreen("main");
+    setActiveGame(null);
+    setNetplaySession(null);
   }
 
-  if (screen === "emulator" && activeGame) {
+  if (screen === "settings") {
+    return <SettingsScreen onBack={returnToMain} />;
+  }
+
+  if (screen === "netplay-lobby" && activeGame) {
     return (
-      <EmulatorScreen
+      <NetplayLobbyScreen
         game={activeGame}
-        onExit={() => {
-          setScreen("main");
-          setActiveGame(null);
+        onBack={returnToMain}
+        onReady={(session) => {
+          setNetplaySession(session);
+          setScreen("emulator");
         }}
       />
     );
+  }
+
+  if (screen === "emulator" && activeGame) {
+    return <EmulatorScreen game={activeGame} netplay={netplaySession} onExit={returnToMain} />;
   }
 
   return (
@@ -31,7 +45,12 @@ export function App() {
       onOpenSettings={() => setScreen("settings")}
       onPlay={(game) => {
         setActiveGame(game);
+        setNetplaySession(null);
         setScreen("emulator");
+      }}
+      onCoop={(game) => {
+        setActiveGame(game);
+        setScreen("netplay-lobby");
       }}
     />
   );

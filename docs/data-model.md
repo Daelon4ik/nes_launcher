@@ -46,5 +46,7 @@
 | metadata_source | `"emu-land.net"` | Источник метаданных/обложек — https://www.emu-land.net/consoles/dendy/roms |
 | controls | `{ "p1": {...} }` | Раскладка управления |
 | theme | `"light" \| "dark" \| "system"` | Тема оформления (вкладка «Лаунчер») |
+| network_display_name | `"Игрок"` | Имя, видимое партнёру в P2P-коопе (вкладка «Сеть», см. [netplay.md](netplay.md)) |
+| network_host_port | `"7777"` | TCP-порт, на котором лаунчер слушает входящее подключение в режиме хоста |
 
 Версия лаунчера в настройках не хранится в БД — читается из `package.json` / `Cargo.toml` (`tauri::generate_context!().package_info()`) и выводится только для отображения.

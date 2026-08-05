@@ -81,6 +81,32 @@
   cursor: default;
 }
 
+.coopButton {
+  height: 36px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--font-size-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.coopButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.coopButton:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.coopButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .deleteButton {
   height: 36px;
   border: 1px solid var(--color-border);

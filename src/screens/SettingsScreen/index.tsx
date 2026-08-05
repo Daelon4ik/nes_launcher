@@ -8,15 +8,17 @@ import type { Theme } from "../../types/settings";
 import { LibraryTab } from "./LibraryTab";
 import { MetadataTab } from "./MetadataTab";
 import { EmulatorTab } from "./EmulatorTab";
+import { NetworkTab } from "./NetworkTab";
 import { LauncherTab } from "./LauncherTab";
 import styles from "./SettingsScreen.module.css";
 
-type TabId = "library" | "metadata" | "emulator" | "launcher";
+type TabId = "library" | "metadata" | "emulator" | "network" | "launcher";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "library", label: "Библиотека" },
   { id: "metadata", label: "Метаданные" },
   { id: "emulator", label: "Эмулятор" },
+  { id: "network", label: "Сеть" },
   { id: "launcher", label: "Лаунчер" },
 ];
 
@@ -76,6 +78,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         {activeTab === "library" && <LibraryTab />}
         {activeTab === "metadata" && <MetadataTab />}
         {activeTab === "emulator" && <EmulatorTab />}
+        {activeTab === "network" && <NetworkTab />}
         {activeTab === "launcher" && <LauncherTab theme={theme} onThemeChange={handleThemeChange} />}
       </div>
     </div>
