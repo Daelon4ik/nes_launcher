@@ -36,6 +36,7 @@ pub async fn update_metadata(
         game_id,
         scraped.description.as_deref(),
         cover_path.as_deref(),
+        scraped.player_mode.as_deref(),
     )
     .map_err(|e| e.to_string())?;
 

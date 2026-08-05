@@ -129,7 +129,8 @@ export function MainScreen({ onOpenSettings, onPlay, onCoop }: MainScreenProps) 
                 data-nav
                 className={styles.coopButton}
                 onClick={() => onCoop(selectedGame)}
-                disabled={modalOpen}
+                disabled={modalOpen || selectedGame.playerMode === "single"}
+                title={selectedGame.playerMode === "single" ? "Игра только для одного игрока" : undefined}
               >
                 Кооп
               </button>

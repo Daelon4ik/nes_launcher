@@ -12,4 +12,6 @@ pub struct Game {
     pub last_played_at: Option<String>,
     pub total_playtime_seconds: i64,
     pub added_at: String,
+    /// "single" | "alternating" | "coop" — см. `metadata::scraper::parse_player_mode`.
+    pub player_mode: String,
 }
