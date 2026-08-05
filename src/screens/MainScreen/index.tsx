@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GameCard } from "../../components/GameCard";
 import { GearIcon } from "../../components/icons";
-import { launchGame } from "../../api/emulator";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
+import type { Game } from "../../types/game";
 import styles from "./MainScreen.module.css";
 
 function formatLastPlayed(lastPlayedAt: string | null): string {
@@ -26,9 +26,10 @@ function formatPlaytime(totalPlaytimeSeconds: number): string {
 
 interface MainScreenProps {
   onOpenSettings: () => void;
+  onPlay: (game: Game) => void;
 }
 
-export function MainScreen({ onOpenSettings }: MainScreenProps) {
+export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
   const { games, loading, error, scan } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
@@ -49,10 +50,6 @@ export function MainScreen({ onOpenSettings }: MainScreenProps) {
     if (container.contains(document.activeElement)) return;
     container.querySelector<HTMLElement>(`.${styles.grid} [data-nav]`)?.focus();
   }, [games]);
-
-  function handlePlay(gameId: number) {
-    launchGame(gameId).catch((err) => console.error("Не удалось запустить игру:", err));
-  }
 
   return (
     <div className={styles.screen} ref={screenRef}>
@@ -77,7 +74,7 @@ export function MainScreen({ onOpenSettings }: MainScreenProps) {
               type="button"
               data-nav
               className={styles.playButton}
-              onClick={() => handlePlay(selectedGame.id)}
+              onClick={() => onPlay(selectedGame)}
             >
               Играть
             </button>
@@ -124,7 +121,7 @@ export function MainScreen({ onOpenSettings }: MainScreenProps) {
                 game={game}
                 selected={game.id === selectedGame?.id}
                 onSelect={() => setSelectedId(game.id)}
-                onPlay={() => handlePlay(game.id)}
+                onPlay={() => onPlay(game)}
               />
             ))}
           </div>
