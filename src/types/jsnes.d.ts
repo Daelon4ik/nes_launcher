@@ -13,7 +13,7 @@ declare module "jsnes" {
     gamepad: {
       setGamepadConfig: (config: unknown) => void;
     };
-    keyboardController: {
+    keyboard: {
       keys: Record<number, [number, number, string]>;
       setKeys: (keys: Record<number, [number, number, string]>) => void;
     };

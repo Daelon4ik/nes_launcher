@@ -114,7 +114,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         });
         
         // Добавляем WASD-управление для второго игрока с клавиатуры
-        const keys = browserRef.current.keyboardController.keys;
+        const keys = browserRef.current.keyboard.keys;
         keys[87] = [2, Controller.BUTTON_UP, "W"];
         keys[83] = [2, Controller.BUTTON_DOWN, "S"];
         keys[65] = [2, Controller.BUTTON_LEFT, "A"];
@@ -123,7 +123,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         keys[69] = [2, Controller.BUTTON_A, "E"];
         keys[16] = [2, Controller.BUTTON_SELECT, "Shift"];
         keys[32] = [2, Controller.BUTTON_START, "Space"];
-        browserRef.current.keyboardController.setKeys(keys);
+        browserRef.current.keyboard.setKeys(keys);
 
         fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
