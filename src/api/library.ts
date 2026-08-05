@@ -12,3 +12,7 @@ export function listGames(): Promise<Game[]> {
 export function installGames(paths: string[]): Promise<Game[]> {
   return invoke("install_games", { paths });
 }
+
+export function deleteGame(gameId: number): Promise<Game[]> {
+  return invoke("delete_game", { gameId });
+}

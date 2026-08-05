@@ -51,6 +51,25 @@ pub fn install_games(db: State<'_, Mutex<Connection>>, paths: Vec<String>) -> Re
     db::list_games(&conn).map_err(|e| e.to_string())
 }
 
+/// Удаляет игру: строку в БД (и связанные сессии/сохранения) + ROM-файл и обложку
+/// на диске. Отсутствие файла на диске не считаем ошибкой (best-effort), чтобы
+/// не блокировать удаление записи из библиотеки.
+#[tauri::command]
+pub fn delete_game(db: State<'_, Mutex<Connection>>, game_id: i64) -> Result<Vec<Game>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let game = db::get_game(&conn, game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Игра с id={game_id} не найдена"))?;
+
+    let _ = std::fs::remove_file(&game.rom_path);
+    if let Some(cover_path) = &game.cover_path {
+        let _ = std::fs::remove_file(cover_path);
+    }
+
+    db::delete_game(&conn, game_id).map_err(|e| e.to_string())?;
+    db::list_games(&conn).map_err(|e| e.to_string())
+}
+
 /// Папки для сканирования: из `Settings.rom_library_paths`, если заданы,
 /// иначе — дефолтная `<app-data>/roms` (создаётся при отсутствии).
 fn resolve_rom_dirs(conn: &Connection, app: &AppHandle) -> Result<Vec<PathBuf>, String> {

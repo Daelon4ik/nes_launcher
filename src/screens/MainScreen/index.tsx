@@ -1,6 +1,6 @@
 // Главный экран: справа список игр, слева панель деталей выбранной игры.
 // См. docs/screens.md#1-main-screen
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { GameCard } from "../../components/GameCard";
 import { GearIcon } from "../../components/icons";
@@ -32,9 +32,12 @@ interface MainScreenProps {
 }
 
 export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
-  const { games, loading, error, install } = useGameLibrary();
+  const { games, loading, error, install, remove } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
 
   useSpatialNavigation(screenRef);
 
@@ -42,6 +45,37 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
     () => games.find((game) => game.id === selectedId) ?? games[0] ?? null,
     [games, selectedId],
   );
+
+  const pendingDeleteGame = useMemo(
+    () => games.find((game) => game.id === pendingDeleteId) ?? null,
+    [games, pendingDeleteId],
+  );
+
+  // Диалог перехватывает фокус, а карточки/кнопки экрана временно выключены
+  // (disabled), чтобы геймпад/клавиатура не «перепрыгивали» через диалог в фон —
+  // useSpatialNavigation ищет ближайший [data-nav] по геометрии, не зная про модалки.
+  useEffect(() => {
+    if (pendingDeleteGame) cancelDeleteRef.current?.focus();
+  }, [pendingDeleteGame]);
+
+  function handleDeleteKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setPendingDeleteId(null);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDeleteGame) return;
+    setDeleting(true);
+    try {
+      await remove(pendingDeleteGame.id);
+      if (selectedId === pendingDeleteGame.id) setSelectedId(null);
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
+  }
 
   // Геймпад/клавиатура должны иметь что-то в фокусе сразу, без предварительного Tab.
   // Именно первая карточка библиотеки, а не кнопка «Играть» (та раньше в DOM, но
@@ -63,6 +97,8 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
     await install(paths);
   }
 
+  const modalOpen = pendingDeleteGame !== null;
+
   return (
     <div className={styles.screen} ref={screenRef}>
       <aside className={styles.details}>
@@ -77,14 +113,26 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
               <li>{formatLastPlayed(selectedGame.lastPlayedAt)}</li>
               <li>{formatPlaytime(selectedGame.totalPlaytimeSeconds)}</li>
             </ul>
-            <button
-              type="button"
-              data-nav
-              className={styles.playButton}
-              onClick={() => onPlay(selectedGame)}
-            >
-              Играть
-            </button>
+            <div className={styles.detailsActions}>
+              <button
+                type="button"
+                data-nav
+                className={styles.playButton}
+                onClick={() => onPlay(selectedGame)}
+                disabled={modalOpen}
+              >
+                Играть
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={styles.deleteButton}
+                onClick={() => setPendingDeleteId(selectedGame.id)}
+                disabled={modalOpen}
+              >
+                Удалить игру
+              </button>
+            </div>
           </>
         ) : (
           <p className={styles.empty}>Выберите игру в библиотеке</p>
@@ -100,7 +148,7 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
               data-nav
               className={styles.ghostButton}
               onClick={handleAddGames}
-              disabled={loading}
+              disabled={loading || modalOpen}
             >
               {loading ? "Добавление…" : "Добавить игры"}
             </button>
@@ -110,6 +158,7 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
               className={styles.settingsButton}
               onClick={onOpenSettings}
               aria-label="Настройки"
+              disabled={modalOpen}
             >
               <GearIcon />
             </button>
@@ -129,11 +178,44 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
                 selected={game.id === selectedGame?.id}
                 onSelect={() => setSelectedId(game.id)}
                 onPlay={() => onPlay(game)}
+                disabled={modalOpen}
               />
             ))}
           </div>
         )}
       </section>
+
+      {pendingDeleteGame && (
+        <div className={styles.modalBackdrop} onKeyDown={handleDeleteKeyDown}>
+          <div className={styles.modal} role="alertdialog" aria-modal="true">
+            <h2 className={styles.modalTitle}>Удалить «{pendingDeleteGame.title}»?</h2>
+            <p className={styles.modalText}>
+              ROM-файл и сохранённые метаданные будут удалены безвозвратно. Это действие нельзя отменить.
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                data-nav
+                ref={cancelDeleteRef}
+                className={styles.ghostButton}
+                onClick={() => setPendingDeleteId(null)}
+                disabled={deleting}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={styles.confirmDeleteButton}
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Удаление…" : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

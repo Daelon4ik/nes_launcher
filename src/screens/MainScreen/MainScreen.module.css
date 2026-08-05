@@ -49,6 +49,12 @@
   font-size: var(--font-size-secondary);
 }
 
+.detailsActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .playButton {
   height: 40px;
   border: 2px solid transparent;
@@ -62,12 +68,110 @@
   transition: background var(--duration-hover), box-shadow var(--duration-hover);
 }
 
-.playButton:hover {
+.playButton:hover:not(:disabled) {
   background: var(--color-accent-hover);
 }
 
 .playButton:focus-visible {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.playButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.deleteButton {
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.deleteButton:hover:not(:disabled) {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.deleteButton:focus-visible {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 25%, transparent);
+}
+
+.deleteButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #000 55%, transparent);
+  z-index: 10;
+}
+
+.modal {
+  width: 400px;
+  max-width: calc(100vw - var(--space-6) * 2);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 48px color-mix(in srgb, #000 35%, transparent);
+}
+
+.modalTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-title);
+  font-weight: 600;
+}
+
+.modalText {
+  margin: 0 0 var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.confirmDeleteButton {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-error);
+  color: #fff;
+  font-size: var(--font-size-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.confirmDeleteButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 85%, black);
+}
+
+.confirmDeleteButton:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 35%, transparent);
+}
+
+.confirmDeleteButton:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .library {
@@ -112,13 +216,18 @@
   transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
 }
 
-.settingsButton:hover {
+.settingsButton:hover:not(:disabled) {
   border-color: var(--color-accent);
 }
 
 .settingsButton:focus-visible {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.settingsButton:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .ghostButton {

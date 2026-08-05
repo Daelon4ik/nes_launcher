@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { installGames, listGames, scanLibrary } from "../api/library";
+import { deleteGame, installGames, listGames, scanLibrary } from "../api/library";
 import type { Game } from "../types/game";
 
 interface UseGameLibraryResult {
@@ -8,6 +8,7 @@ interface UseGameLibraryResult {
   error: string | null;
   scan: () => Promise<void>;
   install: (paths: string[]) => Promise<void>;
+  remove: (gameId: number) => Promise<void>;
 }
 
 export function useGameLibrary(): UseGameLibraryResult {
@@ -46,5 +47,17 @@ export function useGameLibrary(): UseGameLibraryResult {
     }
   }, []);
 
-  return { games, loading, error, scan, install };
+  const remove = useCallback(async (gameId: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setGames(await deleteGame(gameId));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { games, loading, error, scan, install, remove };
 }

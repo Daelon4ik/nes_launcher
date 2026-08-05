@@ -14,8 +14,13 @@
   transition: background var(--duration-hover), border-color var(--duration-hover), box-shadow var(--duration-hover);
 }
 
-.card:hover {
+.card:hover:not(:disabled) {
   background: var(--color-panel-hover);
+}
+
+.card:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Фокус (клавиатура/геймпад) — он же выбор: крупный, читаемый с расстояния индикатор. */

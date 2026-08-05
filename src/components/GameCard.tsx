@@ -10,9 +10,10 @@ interface GameCardProps {
   selected: boolean;
   onSelect: () => void;
   onPlay: () => void;
+  disabled?: boolean;
 }
 
-export function GameCard({ game, selected, onSelect, onPlay }: GameCardProps) {
+export function GameCard({ game, selected, onSelect, onPlay, disabled }: GameCardProps) {
   function handleKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -24,6 +25,7 @@ export function GameCard({ game, selected, onSelect, onPlay }: GameCardProps) {
     <button
       type="button"
       data-nav
+      disabled={disabled}
       className={selected ? `${styles.card} ${styles.selected}` : styles.card}
       onClick={onSelect}
       onFocus={onSelect}

@@ -91,6 +91,14 @@ pub fn game_rom_path(conn: &Connection, game_id: i64) -> rusqlite::Result<Option
     .optional()
 }
 
+/// Удаляет игру и связанные с ней сессии/сохранения (нет ON DELETE CASCADE в схеме).
+pub fn delete_game(conn: &Connection, game_id: i64) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM play_session WHERE game_id = ?1", params![game_id])?;
+    conn.execute("DELETE FROM save_state WHERE game_id = ?1", params![game_id])?;
+    conn.execute("DELETE FROM game WHERE id = ?1", params![game_id])?;
+    Ok(())
+}
+
 pub fn get_game(conn: &Connection, game_id: i64) -> rusqlite::Result<Option<Game>> {
     conn.query_row(
         &format!("SELECT {GAME_COLUMNS} FROM game WHERE id = ?1"),
@@ -252,6 +260,24 @@ mod tests {
         let game = get_game(&conn, id).unwrap().unwrap();
         assert_eq!(game.description.as_deref(), Some("Классика"));
         assert_eq!(game.cover_path.as_deref(), Some("https://example.com/cover.png"));
+    }
+
+    #[test]
+    fn delete_game_removes_game_and_related_rows() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+        record_session(&conn, id, 90, "2026-01-02T00:00:00Z", "2026-01-02T00:01:30Z").unwrap();
+
+        delete_game(&conn, id).unwrap();
+
+        assert!(get_game(&conn, id).unwrap().is_none());
+        let session_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM play_session WHERE game_id = ?1", params![id], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(session_count, 0);
     }
 
     #[test]
