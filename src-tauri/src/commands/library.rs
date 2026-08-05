@@ -32,6 +32,25 @@ pub fn list_games(db: State<'_, Mutex<Connection>>) -> Result<Vec<Game>, String>
     db::list_games(&conn).map_err(|e| e.to_string())
 }
 
+/// Добавляет игры по путям к конкретным ROM-файлам (кнопка «Добавить игры» на
+/// Main Screen, файлы выбраны в системном диалоге). В отличие от scan_library,
+/// не привязано к настроенным папкам — можно выбрать файл откуда угодно на диске.
+#[tauri::command]
+pub fn install_games(db: State<'_, Mutex<Connection>>, paths: Vec<String>) -> Result<Vec<Game>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    for raw_path in paths {
+        if !is_nes_rom(Path::new(&raw_path)) {
+            continue;
+        }
+        let title = humanize_title(Path::new(&raw_path));
+        db::insert_game_if_missing(&conn, &title, &raw_path, &now).map_err(|e| e.to_string())?;
+    }
+
+    db::list_games(&conn).map_err(|e| e.to_string())
+}
+
 /// Папки для сканирования: из `Settings.rom_library_paths`, если заданы,
 /// иначе — дефолтная `<app-data>/roms` (создаётся при отсутствии).
 fn resolve_rom_dirs(conn: &Connection, app: &AppHandle) -> Result<Vec<PathBuf>, String> {
@@ -60,15 +79,17 @@ fn find_rom_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
         let path = entry?.path();
         if path.is_dir() {
             result.extend(find_rom_files(&path)?);
-        } else if path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("nes"))
-        {
+        } else if is_nes_rom(&path) {
             result.push(path);
         }
     }
     Ok(result)
+}
+
+fn is_nes_rom(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("nes"))
 }
 
 fn humanize_title(rom_path: &Path) -> String {

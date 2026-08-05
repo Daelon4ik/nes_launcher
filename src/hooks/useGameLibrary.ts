@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listGames, scanLibrary } from "../api/library";
+import { installGames, listGames, scanLibrary } from "../api/library";
 import type { Game } from "../types/game";
 
 interface UseGameLibraryResult {
@@ -7,6 +7,7 @@ interface UseGameLibraryResult {
   loading: boolean;
   error: string | null;
   scan: () => Promise<void>;
+  install: (paths: string[]) => Promise<void>;
 }
 
 export function useGameLibrary(): UseGameLibraryResult {
@@ -33,5 +34,17 @@ export function useGameLibrary(): UseGameLibraryResult {
     }
   }, []);
 
-  return { games, loading, error, scan };
+  const install = useCallback(async (paths: string[]) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setGames(await installGames(paths));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { games, loading, error, scan, install };
 }

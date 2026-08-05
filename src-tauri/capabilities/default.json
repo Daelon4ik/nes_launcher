@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Базовые разрешения главного окна лаунчера",
   "windows": ["main"],
-  "permissions": ["core:default", "core:app:allow-version"]
+  "permissions": ["core:default", "core:app:allow-version", "dialog:allow-open"]
 }

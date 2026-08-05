@@ -1,6 +1,7 @@
 // Главный экран: справа список игр, слева панель деталей выбранной игры.
 // См. docs/screens.md#1-main-screen
 import { useEffect, useMemo, useRef, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { GameCard } from "../../components/GameCard";
 import { GearIcon } from "../../components/icons";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
@@ -30,7 +31,7 @@ interface MainScreenProps {
 }
 
 export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
-  const { games, loading, error, scan } = useGameLibrary();
+  const { games, loading, error, install } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +51,16 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
     if (container.contains(document.activeElement)) return;
     container.querySelector<HTMLElement>(`.${styles.grid} [data-nav]`)?.focus();
   }, [games]);
+
+  async function handleAddGames() {
+    const selected = await open({
+      multiple: true,
+      filters: [{ name: "NES ROM", extensions: ["nes"] }],
+    });
+    if (!selected) return;
+    const paths = Array.isArray(selected) ? selected : [selected];
+    await install(paths);
+  }
 
   return (
     <div className={styles.screen} ref={screenRef}>
@@ -92,10 +103,10 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
               type="button"
               data-nav
               className={styles.ghostButton}
-              onClick={() => scan()}
+              onClick={handleAddGames}
               disabled={loading}
             >
-              {loading ? "Сканирование…" : "Добавить игры"}
+              {loading ? "Добавление…" : "Добавить игры"}
             </button>
             <button
               type="button"
@@ -112,7 +123,7 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
         {error && <p className={styles.error}>{error}</p>}
 
         {!loading && games.length === 0 ? (
-          <p className={styles.empty}>Библиотека пуста — отсканируйте папку с ROM'ами.</p>
+          <p className={styles.empty}>Библиотека пуста — добавьте игры кнопкой выше.</p>
         ) : (
           <div className={styles.grid}>
             {games.map((game) => (
