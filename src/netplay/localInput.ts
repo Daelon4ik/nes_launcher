@@ -12,10 +12,19 @@ const KEY_TO_BUTTON: Record<string, number> = {
   ArrowDown: Controller.BUTTON_DOWN,
   ArrowLeft: Controller.BUTTON_LEFT,
   ArrowRight: Controller.BUTTON_RIGHT,
+  KeyW: Controller.BUTTON_UP,
+  KeyS: Controller.BUTTON_DOWN,
+  KeyA: Controller.BUTTON_LEFT,
+  KeyD: Controller.BUTTON_RIGHT,
   KeyX: Controller.BUTTON_A,
+  KeyE: Controller.BUTTON_A,
   KeyZ: Controller.BUTTON_B,
+  KeyQ: Controller.BUTTON_B,
   Enter: Controller.BUTTON_START,
+  Space: Controller.BUTTON_START,
   ControlRight: Controller.BUTTON_SELECT,
+  ShiftLeft: Controller.BUTTON_SELECT,
+  ShiftRight: Controller.BUTTON_SELECT,
 };
 
 // Совпадает с src/utils/jsnesGamepad.ts (стандартная раскладка Gamepad API).
@@ -57,7 +66,9 @@ export class LocalInputReader {
       bits |= 1 << KEY_TO_BUTTON[code];
     }
 
-    const pad = navigator.getGamepads?.()[0];
+    // В netplay берём любой доступный геймпад для локального ввода
+    const pads = navigator.getGamepads?.() || [];
+    const pad = pads[0] || pads[1];
     if (pad) {
       for (const [index, button] of Object.entries(GAMEPAD_BUTTON_TO_NES)) {
         if (pad.buttons[Number(index)]?.pressed) bits |= 1 << button;
