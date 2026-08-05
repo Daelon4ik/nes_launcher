@@ -13,3 +13,11 @@ pub struct Game {
     pub total_playtime_seconds: i64,
     pub added_at: String,
 }
+
+/// См. docs/data-model.md#SaveState. camelCase — соответствует src/api/saves.ts на фронтенде.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSlot {
+    pub slot: i64,
+    pub created_at: Option<String>,
+}

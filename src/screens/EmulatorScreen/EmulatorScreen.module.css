@@ -114,6 +114,30 @@
   cursor: default;
 }
 
+.slotMenu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.slotMenuTitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+}
+
+.slotList {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.slotStatus {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+}
+
 .exitButton {
   background: var(--color-accent);
 }

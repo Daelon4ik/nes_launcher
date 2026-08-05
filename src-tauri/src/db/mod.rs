@@ -31,6 +31,8 @@ const SCHEMA: &str = "
         created_at TEXT NOT NULL
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_save_state_game_slot ON save_state(game_id, slot);
+
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -146,6 +148,47 @@ pub fn record_session(
     conn.execute(
         "UPDATE game SET total_playtime_seconds = total_playtime_seconds + ?1, last_played_at = ?2 WHERE id = ?3",
         params![duration_seconds, ended_at, game_id],
+    )?;
+    Ok(())
+}
+
+/// Слоты сохранений игры, у которых уже есть файл (пустые слоты не хранятся в БД).
+pub fn list_save_states(conn: &Connection, game_id: i64) -> rusqlite::Result<Vec<models::SaveSlot>> {
+    let mut stmt = conn.prepare(
+        "SELECT slot, created_at FROM save_state WHERE game_id = ?1 ORDER BY slot",
+    )?;
+    let rows = stmt
+        .query_map(params![game_id], |row| {
+            Ok(models::SaveSlot {
+                slot: row.get(0)?,
+                created_at: row.get(1)?,
+            })
+        })?
+        .collect();
+    rows
+}
+
+pub fn save_state_file_path(conn: &Connection, game_id: i64, slot: i64) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT file_path FROM save_state WHERE game_id = ?1 AND slot = ?2",
+        params![game_id, slot],
+        |row| row.get(0),
+    )
+    .optional()
+}
+
+/// Записывает слот сохранения — перезаписывает существующий файл того же слота, если он уже был.
+pub fn upsert_save_state(
+    conn: &Connection,
+    game_id: i64,
+    slot: i64,
+    file_path: &str,
+    created_at: &str,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO save_state (game_id, slot, file_path, created_at) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(game_id, slot) DO UPDATE SET file_path = excluded.file_path, created_at = excluded.created_at",
+        params![game_id, slot, file_path, created_at],
     )?;
     Ok(())
 }
@@ -278,6 +321,34 @@ mod tests {
             })
             .unwrap();
         assert_eq!(session_count, 0);
+    }
+
+    #[test]
+    fn upsert_save_state_overwrites_same_slot() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+
+        upsert_save_state(&conn, id, 1, "/saves/1/slot_1.json", "2026-01-01T00:00:00Z").unwrap();
+        upsert_save_state(&conn, id, 1, "/saves/1/slot_1_new.json", "2026-01-02T00:00:00Z").unwrap();
+
+        let slots = list_save_states(&conn, id).unwrap();
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].slot, 1);
+        assert_eq!(slots[0].created_at, Some("2026-01-02T00:00:00Z".to_string()));
+        assert_eq!(
+            save_state_file_path(&conn, id, 1).unwrap(),
+            Some("/saves/1/slot_1_new.json".to_string())
+        );
+    }
+
+    #[test]
+    fn save_state_file_path_returns_none_for_empty_slot() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+
+        assert_eq!(save_state_file_path(&conn, id, 1).unwrap(), None);
     }
 
     #[test]
