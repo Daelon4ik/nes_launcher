@@ -1,14 +1,14 @@
 .screen {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100vh;
+  overflow: hidden;
   background: #000;
   color: var(--color-text);
 }
 
 .stageWrapper {
-  position: relative;
-  flex: 1;
+  position: absolute;
+  inset: 0;
 }
 
 .stage {
@@ -53,14 +53,35 @@
   font-size: var(--font-size-body);
 }
 
+/* Скрыт по умолчанию — вызывается по Tab/LB (см. EmulatorScreen/index.tsx).
+   Всегда смонтирован (display:none вместо unmount), чтобы useSpatialNavigation
+   вешала D-pad/A-навигацию на кнопки один раз при маунте экрана. */
 .overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.75);
   border-top: 1px solid var(--color-border);
+}
+
+.overlayHidden {
+  display: none;
+}
+
+.overlayHint {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-3);
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  font-size: var(--font-size-secondary);
+  pointer-events: none;
 }
 
 .overlayButton {

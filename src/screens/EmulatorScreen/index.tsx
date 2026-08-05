@@ -1,11 +1,15 @@
-// Экран запущенной игры: область эмулятора (jsnes) + оверлей (пауза, save/load state, выход).
+// Экран запущенной игры: канва на весь экран + оверлей (пауза, save/load state, выход),
+// скрытый по умолчанию и вызываемый по Tab (клавиатура) / LB (геймпад).
 // См. docs/screens.md#3-emulator-screen
 import { useEffect, useRef, useState } from "react";
 import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
+import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
 import styles from "./EmulatorScreen.module.css";
+
+const LB_BUTTON = 4; // геймпад: не занят jsnes (тот использует только 0,1,8,9,12-15)
 
 type Status = "loading" | "error" | "playing";
 
@@ -35,9 +39,21 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const browserRef = useRef<Browser | null>(null);
   const sessionStartedAt = useRef(Date.now());
+
+  // Оверлей всегда смонтирован (скрывается через display:none), чтобы этот хук
+  // навешивал D-pad/A-подтверждение на его кнопки один раз при маунте экрана —
+  // когда оверлей скрыт, внутри него ничего не в фокусе, и фокус на скрытый
+  // элемент браузер молча не поставит, так что геймплею это не мешает.
+  useSpatialNavigation(overlayRef);
+
+  useEffect(() => {
+    if (overlayOpen) overlayRef.current?.querySelector<HTMLElement>("[data-nav]")?.focus();
+  }, [overlayOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +113,23 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
     return () => window.removeEventListener("gamepadconnected", handleConnect);
   }, [status]);
 
+  // LB должен открывать оверлей и тогда, когда тот ещё закрыт — опрашиваем
+  // геймпад независимо от useSpatialNavigation (та реагирует только пока
+  // оверлей виден/в фокусе).
+  useEffect(() => {
+    let heldLb = false;
+    let rafId: number;
+    function poll() {
+      const pad = navigator.getGamepads?.()[0];
+      const pressed = pad?.buttons[LB_BUTTON]?.pressed ?? false;
+      if (pressed && !heldLb) setOverlayOpen((open) => !open);
+      heldLb = pressed;
+      rafId = requestAnimationFrame(poll);
+    }
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
   function handleExit() {
     const durationSeconds = Math.round((Date.now() - sessionStartedAt.current) / 1000);
     recordSession(game.id, durationSeconds).catch((err) =>
@@ -105,17 +138,28 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
     onExit();
   }
 
-  // Esc не занят jsnes (там стрелки/X/Z/Y/Enter/Ctrl/S/A) — выход с клавиатуры
-  // без конфликта с игровым вводом. Стрелки намеренно не перехватываем этим экраном —
-  // во время игры D-pad/клавиши должны идти в NES, а не в меню-навигацию.
+  // Esc не занят jsnes (там стрелки/X/Z/Y/Enter/Ctrl/S/A) — закрывает оверлей,
+  // если он открыт, иначе выход из игры. Tab открывает оверлей, если тот закрыт
+  // (пока открыт — Tab работает как обычно, переключая фокус между её кнопками).
+  // Стрелки намеренно не перехватываем на самом экране — во время игры D-pad/клавиши
+  // должны идти в NES, а не в меню-навигацию (её ловит только сам оверлей, см. выше).
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleExit();
+      if (e.key === "Escape") {
+        if (overlayOpen) {
+          setOverlayOpen(false);
+        } else {
+          handleExit();
+        }
+      } else if (e.key === "Tab" && !overlayOpen) {
+        e.preventDefault();
+        setOverlayOpen(true);
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [overlayOpen]);
 
   function handleTogglePause() {
     if (!browserRef.current) return;
@@ -141,23 +185,30 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
         )}
       </div>
 
-      <div className={styles.overlay}>
+      {!overlayOpen && <p className={styles.overlayHint}>Tab / LB — меню</p>}
+
+      <div
+        ref={overlayRef}
+        className={overlayOpen ? styles.overlay : `${styles.overlay} ${styles.overlayHidden}`}
+      >
         <button
           type="button"
+          data-nav
           className={styles.overlayButton}
           onClick={handleTogglePause}
           disabled={status !== "playing"}
         >
           {paused ? "Продолжить" : "Пауза"}
         </button>
-        <button type="button" className={styles.overlayButton} disabled>
+        <button type="button" data-nav className={styles.overlayButton} disabled>
           Save state
         </button>
-        <button type="button" className={styles.overlayButton} disabled>
+        <button type="button" data-nav className={styles.overlayButton} disabled>
           Load state
         </button>
         <button
           type="button"
+          data-nav
           className={`${styles.overlayButton} ${styles.exitButton}`}
           onClick={handleExit}
         >
