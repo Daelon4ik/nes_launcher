@@ -116,6 +116,11 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         // Применяем сохраненные настройки управления клавиатурой
         browserRef.current.keyboard.setKeys(getJsnesKeysConfig());
 
+        // jsnes по умолчанию отключает клавиатуру для игрока, если к нему привязан геймпад.
+        // Переопределяем коллбеки клавиатуры, чтобы она работала всегда, независимо от геймпадов.
+        browserRef.current.keyboard.onButtonDown = browserRef.current.nes.buttonDown;
+        browserRef.current.keyboard.onButtonUp = browserRef.current.nes.buttonUp;
+
         fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
       })
