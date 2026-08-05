@@ -51,8 +51,14 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
   // элемент браузер молча не поставит, так что геймплею это не мешает.
   useSpatialNavigation(overlayRef);
 
+  // При открытии фокус обязателен на кнопке оверлея — иначе геймпаду (A/D-pad)
+  // не на чем навигировать. Пропускаем disabled-кнопки («Пауза» задизейблена,
+  // пока ROM ещё грузится/не запустился) — фокус на disabled-элемент браузер
+  // молча не ставит, и без этой проверки оверлей открывался бы совсем без
+  // фокуса внутри.
   useEffect(() => {
-    if (overlayOpen) overlayRef.current?.querySelector<HTMLElement>("[data-nav]")?.focus();
+    if (!overlayOpen) return;
+    overlayRef.current?.querySelector<HTMLElement>("[data-nav]:not(:disabled)")?.focus();
   }, [overlayOpen]);
 
   useEffect(() => {
