@@ -9,6 +9,23 @@ import styles from "./EmulatorScreen.module.css";
 
 type Status = "loading" | "error" | "playing";
 
+const NES_WIDTH = 256;
+const NES_HEIGHT = 240;
+
+// jsnes сам растягивает canvas под размер контейнера (fitInParent), но не
+// округляет коэффициент до целого — при дробном масштабе (напр. 4.5×)
+// nearest-neighbor скейлинг неравномерно растягивает соседние пиксели, из-за
+// чего анимированные спрайты "плывут" полосами/грязью. Пересчитываем размер
+// canvas под ближайший целый коэффициент, чтобы каждый NES-пиксель занимал
+// одинаковое число экранных пикселей.
+function fitScreenPixelPerfect(stage: HTMLDivElement) {
+  const canvas = stage.querySelector("canvas");
+  if (!canvas) return;
+  const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth / NES_WIDTH, stage.clientHeight / NES_HEIGHT)));
+  canvas.style.width = `${NES_WIDTH * scale}px`;
+  canvas.style.height = `${NES_HEIGHT * scale}px`;
+}
+
 interface EmulatorScreenProps {
   game: Game;
   onExit: () => void;
@@ -37,6 +54,7 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
+        fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
       })
       .catch((err) => {
@@ -52,6 +70,16 @@ export function EmulatorScreen({ game, onExit }: EmulatorScreenProps) {
       browserRef.current = null;
     };
   }, [game.id]);
+
+  useEffect(() => {
+    if (status !== "playing" || !stageRef.current) return;
+    const stage = stageRef.current;
+    function handleResize() {
+      fitScreenPixelPerfect(stage);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [status]);
 
   // jsnes не конфигурирует геймпад сам (ждёт мастер настройки нажатием кнопок) —
   // подключаем стандартный маппинг Gamepad API, чтобы геймпад заработал сразу.
