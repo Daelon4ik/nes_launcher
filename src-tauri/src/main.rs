@@ -21,6 +21,7 @@ fn main() {
             commands::library::install_games,
             commands::metadata::update_metadata,
             commands::emulator::launch_game,
+            commands::emulator::read_rom_bytes,
             commands::saves::record_session,
             commands::settings::get_theme,
             commands::settings::set_theme,

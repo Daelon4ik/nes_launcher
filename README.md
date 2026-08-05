@@ -6,7 +6,7 @@
 
 - **Backend**: [Tauri](https://tauri.app/) (Rust) — файловая система, база данных, системные вызовы
 - **Frontend**: React + TypeScript
-- **Эмулятор**: встроенный, работает в webview (например, на базе jsnes/wasm-ядра)
+- **Эмулятор**: встроенный, на базе [jsnes](https://github.com/bfirsh/jsnes) (canvas + Web Audio, работает прямо в webview)
 - **Хранилище**: SQLite (библиотека игр, сохранения, статистика)
 
 ## Документация
@@ -48,8 +48,6 @@ npm run tauri dev  # настоящее окно лаунчера (Rust + webvie
 ```bash
 npm run dev  # http://localhost:1420
 ```
-
-Backend-команды (`scan_library`, `list_games`, `launch_game`, `record_session`) пока заглушки — библиотека игр всегда пустая, SQLite ещё не подключена.
 
 **Hyprland/Wayland:** нативный GTK-бэкенд `tao` под Hyprland у части пользователей завершает процесс мгновенно и без ошибок (окно не открывается, exit code 0, лог обрывается на строке `Running`). Обходится принудительным запуском через XWayland:
 

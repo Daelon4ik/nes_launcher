@@ -11,3 +11,9 @@ pub fn launch_game(db: State<'_, Mutex<Connection>>, game_id: i64) -> Result<Str
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Игра с id={game_id} не найдена"))
 }
+
+/// Читает сырые байты ROM-файла — frontend передаёт их напрямую в jsnes (nes.loadROM).
+#[tauri::command]
+pub fn read_rom_bytes(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("Не удалось прочитать {path}: {e}"))
+}
