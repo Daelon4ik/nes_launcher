@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
+import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/saves";
 import { disconnect as disconnectNetplay } from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
@@ -15,6 +16,7 @@ import styles from "./EmulatorScreen.module.css";
 const LB_BUTTON = 4; // геймпад: не занят jsnes (тот использует только 0,1,8,9,12-15)
 
 type Status = "loading" | "error" | "playing";
+type OverlayView = "menu" | "save" | "load";
 
 const NES_WIDTH = 256;
 const NES_HEIGHT = 240;
@@ -44,6 +46,9 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayView, setOverlayView] = useState<OverlayView>("menu");
+  const [slots, setSlots] = useState<SaveSlot[] | null>(null);
+  const [slotError, setSlotError] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const browserRef = useRef<Browser | null>(null);
@@ -56,15 +61,55 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   // элемент браузер молча не поставит, так что геймплею это не мешает.
   useSpatialNavigation(overlayRef);
 
-  // При открытии фокус обязателен на кнопке оверлея — иначе геймпаду (A/D-pad)
-  // не на чем навигировать. Пропускаем disabled-кнопки («Пауза» задизейблена,
-  // пока ROM ещё грузится/не запустился) — фокус на disabled-элемент браузер
-  // молча не ставит, и без этой проверки оверлей открывался бы совсем без
-  // фокуса внутри.
+  // Закрытие оверлея сбрасывает подменю save/load обратно на главный список —
+  // иначе повторное открытие (Tab/LB) показывало бы слоты прошлого раза.
+  useEffect(() => {
+    if (overlayOpen) return;
+    setOverlayView("menu");
+    setSlots(null);
+    setSlotError(null);
+  }, [overlayOpen]);
+
+  // При открытии (и при переключении между главным меню и подменю слотов)
+  // фокус обязателен на кнопке оверлея — иначе геймпаду (A/D-pad) не на чем
+  // навигировать. Пропускаем disabled-кнопки («Пауза» задизейблена, пока ROM
+  // ещё грузится/не запустился) — фокус на disabled-элемент браузер молча не
+  // ставит, и без этой проверки оверлей открывался бы совсем без фокуса внутри.
   useEffect(() => {
     if (!overlayOpen) return;
     overlayRef.current?.querySelector<HTMLElement>("[data-nav]:not(:disabled)")?.focus();
-  }, [overlayOpen]);
+  }, [overlayOpen, overlayView]);
+
+  function openSlotMenu(view: "save" | "load") {
+    setOverlayView(view);
+    setSlots(null);
+    setSlotError(null);
+    listSaveSlots(game.id)
+      .then(setSlots)
+      .catch((err) => setSlotError(String(err)));
+  }
+
+  async function handleSaveToSlot(slot: number) {
+    if (!browserRef.current) return;
+    try {
+      const data = JSON.stringify(browserRef.current.nes.toJSON());
+      await saveState(game.id, slot, data);
+      setSlots(await listSaveSlots(game.id));
+    } catch (err) {
+      setSlotError(String(err));
+    }
+  }
+
+  async function handleLoadFromSlot(slot: number) {
+    if (!browserRef.current) return;
+    try {
+      const data = await loadState(game.id, slot);
+      browserRef.current.nes.fromJSON(JSON.parse(data));
+      setOverlayOpen(false);
+    } catch (err) {
+      setSlotError(String(err));
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +234,9 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (overlayOpen) {
+        if (overlayOpen && overlayView !== "menu") {
+          setOverlayView("menu");
+        } else if (overlayOpen) {
           setOverlayOpen(false);
         } else {
           handleExit();
@@ -202,7 +249,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayOpen]);
+  }, [overlayOpen, overlayView]);
 
   function handleTogglePause() {
     if (!browserRef.current) return;
@@ -236,30 +283,75 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         ref={overlayRef}
         className={overlayOpen ? styles.overlay : `${styles.overlay} ${styles.overlayHidden}`}
       >
-        <button
-          type="button"
-          data-nav
-          className={styles.overlayButton}
-          onClick={handleTogglePause}
-          disabled={status !== "playing" || Boolean(netplay)}
-          title={netplay ? "Пауза недоступна в кооп-режиме" : undefined}
-        >
-          {paused ? "Продолжить" : "Пауза"}
-        </button>
-        <button type="button" data-nav className={styles.overlayButton} disabled>
-          Save state
-        </button>
-        <button type="button" data-nav className={styles.overlayButton} disabled>
-          Load state
-        </button>
-        <button
-          type="button"
-          data-nav
-          className={`${styles.overlayButton} ${styles.exitButton}`}
-          onClick={handleExit}
-        >
-          Выход
-        </button>
+        {overlayView === "menu" && (
+          <>
+            <button
+              type="button"
+              data-nav
+              className={styles.overlayButton}
+              onClick={handleTogglePause}
+              disabled={status !== "playing" || Boolean(netplay)}
+              title={netplay ? "Пауза недоступна в кооп-режиме" : undefined}
+            >
+              {paused ? "Продолжить" : "Пауза"}
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={styles.overlayButton}
+              onClick={() => openSlotMenu("save")}
+              disabled={status !== "playing" || Boolean(netplay)}
+              title={netplay ? "Save state недоступен в кооп-режиме" : undefined}
+            >
+              Save state
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={styles.overlayButton}
+              onClick={() => openSlotMenu("load")}
+              disabled={status !== "playing" || Boolean(netplay)}
+              title={netplay ? "Load state недоступен в кооп-режиме" : undefined}
+            >
+              Load state
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={`${styles.overlayButton} ${styles.exitButton}`}
+              onClick={handleExit}
+            >
+              Выход
+            </button>
+          </>
+        )}
+
+        {overlayView !== "menu" && (
+          <div className={styles.slotMenu}>
+            <p className={styles.slotMenuTitle}>
+              {overlayView === "save" ? "Сохранить в слот" : "Загрузить слот"}
+            </p>
+            <div className={styles.slotList}>
+              {slots === null && <p className={styles.slotStatus}>Загрузка…</p>}
+              {slots?.map((s) => (
+                <button
+                  key={s.slot}
+                  type="button"
+                  data-nav
+                  className={styles.overlayButton}
+                  disabled={overlayView === "load" && !s.createdAt}
+                  onClick={() => (overlayView === "save" ? handleSaveToSlot(s.slot) : handleLoadFromSlot(s.slot))}
+                >
+                  Слот {s.slot} — {s.createdAt ? new Date(s.createdAt).toLocaleString("ru-RU") : "пусто"}
+                </button>
+              ))}
+            </div>
+            {slotError && <p className={styles.stageError}>{slotError}</p>}
+            <button type="button" data-nav className={styles.overlayButton} onClick={() => setOverlayView("menu")}>
+              Назад
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

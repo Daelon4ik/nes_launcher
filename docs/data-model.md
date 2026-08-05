@@ -33,9 +33,11 @@
 |---|---|---|
 | id | INTEGER PK | |
 | game_id | INTEGER FK → Game | |
-| slot | INTEGER | Номер слота сохранения |
-| file_path | TEXT | Путь к файлу save state |
+| slot | INTEGER | Номер слота сохранения (1..3, см. `Emulator Screen` в [screens.md](screens.md)) |
+| file_path | TEXT | Путь к JSON-файлу `nes.toJSON()` — `<app-data>/saves/<game_id>/slot_<slot>.json` |
 | created_at | DATETIME | |
+
+Уникальный индекс по `(game_id, slot)` — сохранение в занятый слот перезаписывает запись (`ON CONFLICT DO UPDATE`), а не плодит дубликаты.
 
 ## Settings
 

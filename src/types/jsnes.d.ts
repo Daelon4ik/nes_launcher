@@ -10,6 +10,7 @@ declare module "jsnes" {
 
   export class Browser {
     constructor(options: BrowserOptions);
+    nes: NES;
     gamepad: {
       setGamepadConfig: (config: unknown) => void;
     };
@@ -46,6 +47,11 @@ declare module "jsnes" {
     buttonDown: (controller: 1 | 2, button: number) => void;
     buttonUp: (controller: 1 | 2, button: number) => void;
     loadROM: (data: Uint8Array) => void;
+    // Полный снимок состояния (CPU/PPU/APU/mapper/контроллеры) — используется
+    // для save/load state, см. EmulatorScreen. Структура непрозрачна для
+    // фронтенда — она только сериализует в JSON и передаёт обратно как есть.
+    toJSON: () => unknown;
+    fromJSON: (state: unknown) => void;
   }
 }
 
