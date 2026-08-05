@@ -1,0 +1,43 @@
+.sectionTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.options {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.option {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), box-shadow var(--duration-hover), background var(--duration-hover);
+}
+
+.option:hover {
+  border-color: var(--color-accent);
+}
+
+.option:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.optionActive {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.version {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+}

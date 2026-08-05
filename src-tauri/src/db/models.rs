@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-/// См. docs/data-model.md
+/// См. docs/data-model.md. camelCase — соответствует src/types/game.ts на фронтенде.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Game {
     pub id: i64,
     pub title: String,

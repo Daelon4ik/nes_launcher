@@ -1,5 +1,135 @@
 // Главный экран: справа список игр, слева панель деталей выбранной игры.
 // См. docs/screens.md#1-main-screen
-export function MainScreen() {
-  return null;
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GameCard } from "../../components/GameCard";
+import { GearIcon } from "../../components/icons";
+import { launchGame } from "../../api/emulator";
+import { useGameLibrary } from "../../hooks/useGameLibrary";
+import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
+import styles from "./MainScreen.module.css";
+
+function formatLastPlayed(lastPlayedAt: string | null): string {
+  if (!lastPlayedAt) {
+    return "Ещё не запускалась";
+  }
+  return `Последний запуск: ${new Date(lastPlayedAt).toLocaleDateString("ru-RU")}`;
+}
+
+function formatPlaytime(totalPlaytimeSeconds: number): string {
+  if (totalPlaytimeSeconds <= 0) {
+    return "Ещё не сыграно";
+  }
+  const hours = Math.floor(totalPlaytimeSeconds / 3600);
+  const minutes = Math.floor((totalPlaytimeSeconds % 3600) / 60);
+  return hours > 0 ? `В игре: ${hours} ч ${minutes} мин` : `В игре: ${minutes} мин`;
+}
+
+interface MainScreenProps {
+  onOpenSettings: () => void;
+}
+
+export function MainScreen({ onOpenSettings }: MainScreenProps) {
+  const { games, loading, error, scan } = useGameLibrary();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+
+  useSpatialNavigation(screenRef);
+
+  const selectedGame = useMemo(
+    () => games.find((game) => game.id === selectedId) ?? games[0] ?? null,
+    [games, selectedId],
+  );
+
+  // Геймпад/клавиатура должны иметь что-то в фокусе сразу, без предварительного Tab.
+  // Именно первая карточка библиотеки, а не кнопка «Играть» (та раньше в DOM, но
+  // при входе на экран ожидаемее оказаться в списке игр, а не сразу на запуске).
+  useEffect(() => {
+    const container = screenRef.current;
+    if (!container || games.length === 0) return;
+    if (container.contains(document.activeElement)) return;
+    container.querySelector<HTMLElement>(`.${styles.grid} [data-nav]`)?.focus();
+  }, [games]);
+
+  function handlePlay(gameId: number) {
+    launchGame(gameId).catch((err) => console.error("Не удалось запустить игру:", err));
+  }
+
+  return (
+    <div className={styles.screen} ref={screenRef}>
+      <aside className={styles.details}>
+        {selectedGame ? (
+          <>
+            <div
+              className={styles.detailsCover}
+              style={
+                selectedGame.coverPath ? { backgroundImage: `url(${selectedGame.coverPath})` } : undefined
+              }
+            />
+            <h2 className={styles.detailsTitle}>{selectedGame.title}</h2>
+            <p className={styles.description}>
+              {selectedGame.description ?? "Описание пока не загружено."}
+            </p>
+            <ul className={styles.meta}>
+              <li>{formatLastPlayed(selectedGame.lastPlayedAt)}</li>
+              <li>{formatPlaytime(selectedGame.totalPlaytimeSeconds)}</li>
+            </ul>
+            <button
+              type="button"
+              data-nav
+              className={styles.playButton}
+              onClick={() => handlePlay(selectedGame.id)}
+            >
+              Играть
+            </button>
+          </>
+        ) : (
+          <p className={styles.empty}>Выберите игру в библиотеке</p>
+        )}
+      </aside>
+
+      <section className={styles.library}>
+        <header className={styles.libraryHeader}>
+          <h1 className={styles.libraryTitle}>Библиотека</h1>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              data-nav
+              className={styles.ghostButton}
+              onClick={() => scan()}
+              disabled={loading}
+            >
+              {loading ? "Сканирование…" : "Добавить игры"}
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={styles.settingsButton}
+              onClick={onOpenSettings}
+              aria-label="Настройки"
+            >
+              <GearIcon />
+            </button>
+          </div>
+        </header>
+
+        {error && <p className={styles.error}>{error}</p>}
+
+        {!loading && games.length === 0 ? (
+          <p className={styles.empty}>Библиотека пуста — отсканируйте папку с ROM'ами.</p>
+        ) : (
+          <div className={styles.grid}>
+            {games.map((game) => (
+              <GameCard
+                key={game.id}
+                game={game}
+                selected={game.id === selectedGame?.id}
+                onSelect={() => setSelectedId(game.id)}
+                onPlay={() => handlePlay(game.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }

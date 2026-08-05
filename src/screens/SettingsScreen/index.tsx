@@ -1,9 +1,83 @@
 // Экран настроек: библиотека, метаданные, эмулятор, лаунчер.
 // См. docs/screens.md#2-settings-screen
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeftIcon } from "../../components/icons";
+import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
+import { getTheme, setTheme as persistTheme } from "../../api/settings";
+import type { Theme } from "../../types/settings";
+import { LibraryTab } from "./LibraryTab";
+import { MetadataTab } from "./MetadataTab";
+import { EmulatorTab } from "./EmulatorTab";
 import { LauncherTab } from "./LauncherTab";
+import styles from "./SettingsScreen.module.css";
 
-export function SettingsScreen() {
-  return null;
+type TabId = "library" | "metadata" | "emulator" | "launcher";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "library", label: "Библиотека" },
+  { id: "metadata", label: "Метаданные" },
+  { id: "emulator", label: "Эмулятор" },
+  { id: "launcher", label: "Лаунчер" },
+];
+
+interface SettingsScreenProps {
+  onBack: () => void;
 }
 
-export { LauncherTab };
+export function SettingsScreen({ onBack }: SettingsScreenProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("library");
+  const [theme, setThemeState] = useState<Theme>("system");
+  const screenRef = useRef<HTMLDivElement>(null);
+
+  useSpatialNavigation(screenRef);
+
+  useEffect(() => {
+    getTheme().then(setThemeState);
+  }, []);
+
+  // Геймпад/клавиатура должны иметь что-то в фокусе сразу, без предварительного Tab.
+  useEffect(() => {
+    const container = screenRef.current;
+    if (!container) return;
+    if (container.contains(document.activeElement)) return;
+    container.querySelector<HTMLElement>("[data-nav]")?.focus();
+  }, []);
+
+  function handleThemeChange(next: Theme) {
+    setThemeState(next);
+    persistTheme(next).catch((err) => console.error("Не удалось сохранить тему:", err));
+  }
+
+  return (
+    <div className={styles.screen} ref={screenRef}>
+      <header className={styles.header}>
+        <button type="button" data-nav className={styles.backButton} onClick={onBack}>
+          <ArrowLeftIcon />
+          Библиотека
+        </button>
+        <h1 className={styles.title}>Настройки</h1>
+      </header>
+
+      <nav className={styles.tabs}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            data-nav
+            className={activeTab === tab.id ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className={styles.content}>
+        {activeTab === "library" && <LibraryTab />}
+        {activeTab === "metadata" && <MetadataTab />}
+        {activeTab === "emulator" && <EmulatorTab />}
+        {activeTab === "launcher" && <LauncherTab theme={theme} onThemeChange={handleThemeChange} />}
+      </div>
+    </div>
+  );
+}

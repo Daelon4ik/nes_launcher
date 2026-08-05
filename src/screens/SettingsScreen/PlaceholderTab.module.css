@@ -1,0 +1,40 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+}
+
+.label {
+  font-size: var(--font-size-body);
+}
+
+.value {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+}
+
+.badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-hover);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+}
+
+.disabledButton {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+  cursor: default;
+  opacity: 0.6;
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getLauncherVersion } from "../../api/launcher";
 import type { Theme } from "../../types/settings";
+import styles from "./LauncherTab.module.css";
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Светлая" },
@@ -34,20 +35,22 @@ export function LauncherTab({ theme, onThemeChange }: LauncherTabProps) {
 
   return (
     <div>
-      <h3>Тема</h3>
-      {THEME_OPTIONS.map((option) => (
-        <label key={option.value}>
-          <input
-            type="radio"
-            name="theme"
-            checked={theme === option.value}
-            onChange={() => onThemeChange(option.value)}
-          />
-          {option.label}
-        </label>
-      ))}
+      <h3 className={styles.sectionTitle}>Тема</h3>
+      <div className={styles.options}>
+        {THEME_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            data-nav
+            className={theme === option.value ? `${styles.option} ${styles.optionActive}` : styles.option}
+            onClick={() => onThemeChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
 
-      <footer>Версия лаунчера: {version ?? "…"}</footer>
+      <p className={styles.version}>Версия лаунчера: {version ?? "…"}</p>
     </div>
   );
 }

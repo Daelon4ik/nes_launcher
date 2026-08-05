@@ -1,0 +1,43 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-hover), border-color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.card:hover {
+  background: var(--color-panel-hover);
+}
+
+/* Фокус (клавиатура/геймпад) — он же выбор: крупный, читаемый с расстояния индикатор. */
+.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-md);
+  background-color: var(--color-panel-hover);
+  background-size: cover;
+  background-position: center;
+}
+
+.title {
+  font-size: var(--font-size-card-title);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
