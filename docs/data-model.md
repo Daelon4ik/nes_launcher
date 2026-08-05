@@ -10,7 +10,7 @@
 | title | TEXT | Название игры |
 | rom_path | TEXT | Путь к файлу ROM на диске |
 | description | TEXT | Описание, полученное из metadata scraper'а |
-| cover_path | TEXT | Путь к загруженной обложке (локальный кэш) |
+| cover_path | TEXT | Путь к локально скачанной обложке (`<app-data>/covers/<id>.<ext>`). Отдавать URL emu-land.net напрямую в webview нельзя — сервер блокирует хотлинки по Referer (403), поэтому картинка скачивается бэкендом и грузится в UI через `convertFileSrc` (asset protocol) |
 | last_played_at | DATETIME NULL | Дата последнего запуска |
 | total_playtime_seconds | INTEGER | Суммарное время в игре |
 | added_at | DATETIME | Дата добавления в библиотеку |

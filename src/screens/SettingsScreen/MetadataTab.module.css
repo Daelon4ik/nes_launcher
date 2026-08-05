@@ -1,0 +1,124 @@
+.hint {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+  max-width: 60ch;
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+}
+
+.toolbar {
+  margin-bottom: var(--space-4);
+}
+
+.bulkButton {
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: var(--font-size-body);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-hover), box-shadow var(--duration-hover), opacity var(--duration-hover);
+}
+
+.bulkButton:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.bulkButton:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.bulkButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 36px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-panel-hover);
+  background-size: cover;
+  background-position: center;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusError {
+  color: var(--color-error);
+}
+
+.rowButton {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), box-shadow var(--duration-hover), opacity var(--duration-hover);
+}
+
+.rowButton:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.rowButton:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.rowButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

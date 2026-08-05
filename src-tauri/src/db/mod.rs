@@ -91,6 +91,38 @@ pub fn game_rom_path(conn: &Connection, game_id: i64) -> rusqlite::Result<Option
     .optional()
 }
 
+pub fn get_game(conn: &Connection, game_id: i64) -> rusqlite::Result<Option<Game>> {
+    conn.query_row(
+        &format!("SELECT {GAME_COLUMNS} FROM game WHERE id = ?1"),
+        params![game_id],
+        row_to_game,
+    )
+    .optional()
+}
+
+/// Записывает результат скрапинга метаданных (description/cover_path могут быть
+/// не найдены по отдельности — тогда соответствующее поле не трогаем).
+pub fn update_game_metadata(
+    conn: &Connection,
+    game_id: i64,
+    description: Option<&str>,
+    cover_path: Option<&str>,
+) -> rusqlite::Result<()> {
+    if let Some(description) = description {
+        conn.execute(
+            "UPDATE game SET description = ?1 WHERE id = ?2",
+            params![description, game_id],
+        )?;
+    }
+    if let Some(cover_path) = cover_path {
+        conn.execute(
+            "UPDATE game SET cover_path = ?1 WHERE id = ?2",
+            params![cover_path, game_id],
+        )?;
+    }
+    Ok(())
+}
+
 /// Записывает завершённую сессию и обновляет статистику игры.
 pub fn record_session(
     conn: &Connection,
@@ -187,6 +219,39 @@ mod tests {
         let games = list_games(&conn).unwrap();
         assert_eq!(games[0].total_playtime_seconds, 150);
         assert_eq!(games[0].last_played_at.as_deref(), Some("2026-01-03T00:01:00Z"));
+    }
+
+    #[test]
+    fn get_game_returns_none_for_unknown_id() {
+        let conn = memory_db();
+        assert!(get_game(&conn, 999).unwrap().is_none());
+    }
+
+    #[test]
+    fn update_game_metadata_sets_description_and_cover() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+
+        update_game_metadata(&conn, id, Some("Классика"), Some("https://example.com/cover.png")).unwrap();
+
+        let game = get_game(&conn, id).unwrap().unwrap();
+        assert_eq!(game.description.as_deref(), Some("Классика"));
+        assert_eq!(game.cover_path.as_deref(), Some("https://example.com/cover.png"));
+    }
+
+    #[test]
+    fn update_game_metadata_leaves_field_untouched_when_none() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+
+        update_game_metadata(&conn, id, Some("Классика"), None).unwrap();
+        update_game_metadata(&conn, id, None, Some("https://example.com/cover.png")).unwrap();
+
+        let game = get_game(&conn, id).unwrap().unwrap();
+        assert_eq!(game.description.as_deref(), Some("Классика"));
+        assert_eq!(game.cover_path.as_deref(), Some("https://example.com/cover.png"));
     }
 
     #[test]

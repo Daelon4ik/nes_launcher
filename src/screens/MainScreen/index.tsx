@@ -7,6 +7,7 @@ import { GearIcon } from "../../components/icons";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
+import { coverImageStyle } from "../../utils/coverImage";
 import styles from "./MainScreen.module.css";
 
 function formatLastPlayed(lastPlayedAt: string | null): string {
@@ -67,12 +68,7 @@ export function MainScreen({ onOpenSettings, onPlay }: MainScreenProps) {
       <aside className={styles.details}>
         {selectedGame ? (
           <>
-            <div
-              className={styles.detailsCover}
-              style={
-                selectedGame.coverPath ? { backgroundImage: `url(${selectedGame.coverPath})` } : undefined
-              }
-            />
+            <div className={styles.detailsCover} style={coverImageStyle(selectedGame.coverPath)} />
             <h2 className={styles.detailsTitle}>{selectedGame.title}</h2>
             <p className={styles.description}>
               {selectedGame.description ?? "Описание пока не загружено."}

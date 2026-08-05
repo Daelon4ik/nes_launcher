@@ -19,6 +19,7 @@ fn main() {
             commands::library::scan_library,
             commands::library::list_games,
             commands::library::install_games,
+            commands::metadata::update_metadata,
             commands::emulator::launch_game,
             commands::saves::record_session,
             commands::settings::get_theme,

@@ -2,6 +2,7 @@
 // Фокус (клавиатура/геймпад) — он же выбор, см. docs/design.md#управление-с-геймпада.
 import type { KeyboardEvent } from "react";
 import type { Game } from "../types/game";
+import { coverImageStyle } from "../utils/coverImage";
 import styles from "./GameCard.module.css";
 
 interface GameCardProps {
@@ -29,10 +30,7 @@ export function GameCard({ game, selected, onSelect, onPlay }: GameCardProps) {
       onDoubleClick={onPlay}
       onKeyDown={handleKeyDown}
     >
-      <span
-        className={styles.cover}
-        style={game.coverPath ? { backgroundImage: `url(${game.coverPath})` } : undefined}
-      />
+      <span className={styles.cover} style={coverImageStyle(game.coverPath)} />
       <span className={styles.title}>{game.title}</span>
     </button>
   );

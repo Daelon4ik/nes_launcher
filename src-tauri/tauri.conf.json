@@ -16,6 +16,12 @@
         "width": 1280,
         "height": 800
       }
-    ]
+    ],
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/covers/*"]
+      }
+    }
   }
 }
