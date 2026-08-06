@@ -25,7 +25,7 @@ export function App() {
   }
 
   if (screen === "store") {
-    return <StoreScreen onBack={returnToMain} />;
+    return <StoreScreen onBack={returnToMain} onOpenSettings={() => setScreen("settings")} />;
   }
 
   if (screen === "netplay-lobby" && activeGame) {

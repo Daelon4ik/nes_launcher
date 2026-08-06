@@ -1,4 +1,20 @@
+/* Big Picture масштаб — см. docs/design.md#типографика. Те же локальные токены,
+   что в MainScreen.module.css, чтобы Магазин визуально не выпадал из масштаба
+   соседних экранов главной навигации. */
 .screen {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --font-size-title: 40px;
+  --font-size-card-title: 28px;
+  --font-size-body: 28px;
+  --font-size-secondary: 24px;
+  --radius-md: 16px;
+  --radius-sm: 8px;
+
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -6,63 +22,93 @@
   color: var(--color-text);
 }
 
-.header {
+.content {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+  flex-direction: column;
+  min-height: 0;
 }
 
-.backButton {
+.topBar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  flex-shrink: 0;
+}
+
+.navTabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.navTab {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 36px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: var(--space-1) 0 var(--space-2);
+  border: none;
+  border-bottom: 3px solid transparent;
   background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-secondary);
-  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 32px;
+  font-weight: 600;
   outline: none;
-  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+  transition: color var(--duration-hover), border-color var(--duration-hover);
 }
 
-.backButton:hover:not(:disabled) {
-  border-color: var(--color-accent);
+button.navTab {
+  cursor: pointer;
 }
 
-.backButton:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+button.navTab:hover:not(:disabled) {
+  color: var(--color-text);
 }
 
-.backButton:disabled {
+.navTab:focus-visible {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.navTab:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.title {
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: var(--font-size-title);
-  font-weight: 600;
-  white-space: nowrap;
+.navTabActive {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 240px;
+  max-width: 560px;
+  margin-left: var(--space-6);
 }
 
 .searchInput {
   flex: 1;
-  height: 36px;
+  height: 72px;
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-panel);
   color: var(--color-text);
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-secondary);
   outline: none;
   transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-secondary);
 }
 
 .searchInput:hover:not(:disabled) {
@@ -82,33 +128,34 @@
 .letters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6) var(--space-3);
+  flex-shrink: 0;
 }
 
 .letter {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 var(--space-1);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  min-width: 64px;
+  height: 56px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-text-secondary);
   font-size: var(--font-size-secondary);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: color var(--duration-hover), border-color var(--duration-hover), box-shadow var(--duration-hover);
+  transition: color var(--duration-hover), border-color var(--duration-hover), background var(--duration-hover), box-shadow var(--duration-hover);
 }
 
 .letter:hover:not(:disabled) {
+  border-color: var(--color-accent);
   color: var(--color-text);
 }
 
 .letter:focus-visible {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .letter:disabled {
@@ -122,46 +169,73 @@
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
-.content {
+.gridArea {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6);
+  padding: var(--space-2) var(--space-6) var(--space-6);
   overflow-y: auto;
 }
 
-.list {
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.gameRow {
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  padding: var(--space-2);
+  border: 2px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: var(--font-size-body);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   outline: none;
-  transition: border-color var(--duration-hover), background var(--duration-hover), box-shadow var(--duration-hover);
+  transform: scale(1);
+  transition: background var(--duration-hover), border-color var(--duration-hover),
+    box-shadow var(--duration-hover), transform 150ms ease-out;
 }
 
-.gameRow:hover:not(:disabled) {
+.tile:hover:not(:disabled) {
   background: var(--color-panel-hover);
 }
 
-.gameRow:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-.gameRow:disabled {
+.tile:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.tile:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  transform: scale(1.05);
+}
+
+.tileCover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-md);
+  background: var(--color-panel-hover);
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+.tileTitle {
+  font-family: var(--font-title);
+  font-size: var(--font-size-card-title);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pagination {
@@ -178,7 +252,7 @@
 }
 
 .ghostButton {
-  height: 36px;
+  height: 72px;
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -222,6 +296,41 @@
   font-size: var(--font-size-secondary);
 }
 
+.hintFooter {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 96px;
+  padding: 0 var(--space-6);
+  background: var(--color-panel);
+  border-top: 1px solid var(--color-border);
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.hintBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-hover);
+  color: var(--color-accent);
+  font-size: 24px;
+  font-weight: 700;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -233,7 +342,7 @@
 }
 
 .modal {
-  width: 520px;
+  width: 800px;
   max-width: calc(100vw - var(--space-6) * 2);
   max-height: calc(100vh - var(--space-6) * 2);
   display: flex;
@@ -287,7 +396,7 @@
 .fileInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -304,14 +413,14 @@
 
 .installButton {
   flex-shrink: 0;
-  height: 32px;
-  padding: 0 var(--space-3);
+  height: 64px;
+  padding: 0 var(--space-4);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-accent);
   color: #fff;
   font-size: var(--font-size-secondary);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition: background var(--duration-hover), box-shadow var(--duration-hover);

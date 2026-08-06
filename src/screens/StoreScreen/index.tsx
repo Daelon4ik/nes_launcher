@@ -1,7 +1,7 @@
 // Магазин игр: поиск/просмотр ROM'ов на emu-land.net и установка в библиотеку.
 // См. docs/screens.md#5-store-screen и docs/store.md
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftIcon } from "../../components/icons";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Gamepad2, Library, Settings, Store } from "lucide-react";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getRomLibraryPaths } from "../../api/settings";
 import { storeBrowse, storeInstall, storeListFiles, storeSearch } from "../../api/store";
@@ -10,12 +10,13 @@ import styles from "./StoreScreen.module.css";
 
 interface StoreScreenProps {
   onBack: () => void;
+  onOpenSettings: () => void;
 }
 
 // Не бьём поисковый запрос в бэкенд на каждое нажатие клавиши.
 const SEARCH_DEBOUNCE_MS = 400;
 
-export function StoreScreen({ onBack }: StoreScreenProps) {
+export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   const screenRef = useRef<HTMLDivElement>(null);
   useSpatialNavigation(screenRef);
 
@@ -117,6 +118,13 @@ export function StoreScreen({ onBack }: StoreScreenProps) {
     setPendingInstall(null);
   }
 
+  function handleModalKeyDown(e: KeyboardEvent<HTMLDivElement>, onCancel: () => void) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  }
+
   function handleInstallClick(file: StoreFile) {
     setInstallError(null);
     if (libraryPaths.length > 1) {
@@ -143,96 +151,147 @@ export function StoreScreen({ onBack }: StoreScreenProps) {
 
   return (
     <div className={styles.screen} ref={screenRef}>
-      <header className={styles.header}>
-        <button type="button" data-nav className={styles.backButton} onClick={onBack} disabled={anyModalOpen}>
-          <ArrowLeftIcon />
-          Библиотека
-        </button>
-        <h1 className={styles.title}>Магазин</h1>
-        <input
-          type="search"
-          data-nav
-          className={styles.searchInput}
-          placeholder="Название игры…"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          disabled={anyModalOpen}
-        />
-      </header>
-
-      {!isSearching && (
-        <nav className={styles.letters}>
-          {BROWSE_LETTERS.map((l) => (
-            <button
-              key={l}
-              type="button"
-              data-nav
-              className={l === letter ? `${styles.letter} ${styles.letterActive}` : styles.letter}
-              onClick={() => handleLetterChange(l)}
-              disabled={anyModalOpen}
-            >
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </nav>
-      )}
-
       <div className={styles.content}>
-        {installedMessage && <p className={styles.success}>{installedMessage}</p>}
-        {listError && <p className={styles.error}>{listError}</p>}
-
-        {!listLoading && !listError && games.length === 0 && (
-          <p className={styles.empty}>
-            {isSearching
-              ? "Ничего не найдено. Попробуйте другое название или просмотрите раздел по буквам."
-              : `В разделе «${letterLabel}» пока пусто.`}
-          </p>
-        )}
-
-        <div className={styles.list}>
-          {games.map((game) => (
+        <header className={styles.topBar}>
+          <nav className={styles.navTabs}>
             <button
-              key={game.slug}
               type="button"
               data-nav
-              className={styles.gameRow}
-              onClick={() => openGame(game)}
+              className={styles.navTab}
+              onClick={onBack}
               disabled={anyModalOpen}
             >
-              {game.title}
+              <Library size={40} />
+              Библиотека
             </button>
-          ))}
-        </div>
-
-        {!isSearching && totalPages > 1 && (
-          <div className={styles.pagination}>
-            <button
-              type="button"
-              data-nav
-              className={styles.ghostButton}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1 || anyModalOpen}
-            >
-              ← Назад
-            </button>
-            <span className={styles.pageIndicator}>
-              Страница {page} из {totalPages}
+            <span className={`${styles.navTab} ${styles.navTabActive}`}>
+              <Store size={40} />
+              Магазин
             </span>
             <button
               type="button"
               data-nav
-              className={styles.ghostButton}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages || anyModalOpen}
+              className={styles.navTab}
+              onClick={onOpenSettings}
+              disabled={anyModalOpen}
             >
-              Далее →
+              <Settings size={40} />
+              Настройки
             </button>
+          </nav>
+
+          <div className={styles.headerControls}>
+            <input
+              type="search"
+              data-nav
+              className={styles.searchInput}
+              placeholder="Название игры…"
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              disabled={anyModalOpen}
+            />
           </div>
+        </header>
+
+        {!isSearching && (
+          <nav className={styles.letters}>
+            {BROWSE_LETTERS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                data-nav
+                className={l === letter ? `${styles.letter} ${styles.letterActive}` : styles.letter}
+                onClick={() => handleLetterChange(l)}
+                disabled={anyModalOpen}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </nav>
         )}
+
+        <main className={styles.gridArea}>
+          {installedMessage && <p className={styles.success}>{installedMessage}</p>}
+          {listError && <p className={styles.error}>{listError}</p>}
+
+          {!listLoading && !listError && games.length === 0 && (
+            <p className={styles.empty}>
+              {isSearching
+                ? "Ничего не найдено. Попробуйте другое название или просмотрите раздел по буквам."
+                : `В разделе «${letterLabel}» пока пусто.`}
+            </p>
+          )}
+
+          <div className={styles.grid}>
+            {games.map((game) => (
+              <button
+                key={game.slug}
+                type="button"
+                data-nav
+                className={styles.tile}
+                onClick={() => openGame(game)}
+                disabled={anyModalOpen}
+              >
+                <span className={styles.tileCover}>
+                  <Gamepad2 size={64} strokeWidth={1.5} />
+                </span>
+                <span className={styles.tileTitle}>{game.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {!isSearching && totalPages > 1 && (
+            <div className={styles.pagination}>
+              <button
+                type="button"
+                data-nav
+                className={styles.ghostButton}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || anyModalOpen}
+              >
+                ← Назад
+              </button>
+              <span className={styles.pageIndicator}>
+                Страница {page} из {totalPages}
+              </span>
+              <button
+                type="button"
+                data-nav
+                className={styles.ghostButton}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || anyModalOpen}
+              >
+                Далее →
+              </button>
+            </div>
+          )}
+        </main>
+
+        <footer className={styles.hintFooter}>
+          {anyModalOpen ? (
+            <>
+              <span className={styles.hint}>
+                <span className={styles.hintBadge}>A</span> Подтвердить
+              </span>
+              <span className={styles.hint}>
+                <span className={styles.hintBadge}>Esc</span> Отмена
+              </span>
+            </>
+          ) : (
+            <>
+              <span className={styles.hint}>
+                <span className={styles.hintBadge}>A</span> Выбрать
+              </span>
+              <span className={styles.hint}>
+                <span className={styles.hintBadge}>↑↓←→</span> Навигация
+              </span>
+            </>
+          )}
+        </footer>
       </div>
 
       {selectedGame && (
-        <div className={styles.modalBackdrop}>
+        <div className={styles.modalBackdrop} onKeyDown={(e) => handleModalKeyDown(e, closeGame)}>
           <div className={styles.modal} role="dialog" aria-modal="true">
             <h2 className={styles.modalTitle}>{selectedGame.title}</h2>
 
@@ -277,7 +336,7 @@ export function StoreScreen({ onBack }: StoreScreenProps) {
       )}
 
       {pendingInstall && (
-        <div className={styles.modalBackdrop}>
+        <div className={styles.modalBackdrop} onKeyDown={(e) => handleModalKeyDown(e, () => setPendingInstall(null))}>
           <div className={styles.modal} role="dialog" aria-modal="true">
             <h2 className={styles.modalTitle}>Куда установить?</h2>
             <p className={styles.modalText}>Настроено несколько папок с ROM'ами — выберите нужную.</p>

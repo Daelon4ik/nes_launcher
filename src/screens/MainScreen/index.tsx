@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Shelf } from "../../components/Shelf";
-import { Settings, Store } from "lucide-react";
+import { Library, Settings, Store } from "lucide-react";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
@@ -170,7 +170,10 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
       <div className={styles.content}>
         <header className={styles.topBar}>
           <nav className={styles.navTabs}>
-            <span className={`${styles.navTab} ${styles.navTabActive}`}>Библиотека</span>
+            <span className={`${styles.navTab} ${styles.navTabActive}`}>
+              <Library size={40} />
+              Библиотека
+            </span>
             <button
               type="button"
               data-nav
