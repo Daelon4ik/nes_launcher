@@ -7,7 +7,7 @@ import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
 import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/saves";
 import { disconnect as disconnectNetplay } from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
-import { standardGamepadConfig } from "../../utils/jsnesGamepad";
+import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getJsnesKeysConfig } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
@@ -194,25 +194,40 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, [status]);
 
-  // jsnes не конфигурирует геймпад сам (ждёт мастер настройки нажатием кнопок) —
-  // подключаем стандартный маппинг Gamepad API, чтобы геймпад заработал сразу.
+  // jsnes не конфигурирует геймпад сам (ждёт мастер настройки нажатием кнопок), а его
+  // встроенный GamepadController привязывает раскладку по строковому id устройства —
+  // это не различает двух игроков с одинаковой моделью контроллера (у обеих один и тот
+  // же id). Поэтому опрашиваем геймпады сами и применяем сохранённую раскладку
+  // (см. src/utils/jsnesGamepad.ts) напрямую через nes.buttonDown/buttonUp, назначая
+  // игроков по порядку подключения — первый геймпад Игроку 1, второй Игроку 2.
   useEffect(() => {
-    function configureAllGamepads() {
+    if (status !== "playing" || netplay) return; // кооп читает ввод сам (LocalInputReader)
+    const maps = getGamepadButtonMaps();
+    const prevPressed: boolean[][] = [[], []];
+    let rafId: number;
+
+    function poll() {
       const pads = Array.from(navigator.getGamepads()).filter((p): p is Gamepad => p !== null);
-      if (pads.length > 0 && browserRef.current) {
-        browserRef.current.gamepad.setGamepadConfig(
-          standardGamepadConfig(pads.map((p) => p.id))
-        );
+      const nes = browserRef.current?.nes;
+      for (let i = 0; i < 2; i++) {
+        const pad = pads[i];
+        if (!pad || !nes) {
+          prevPressed[i] = [];
+          continue;
+        }
+        for (const [buttonIndex, nesButton] of maps[i]) {
+          const pressed = pad.buttons[buttonIndex]?.pressed ?? false;
+          const wasPressed = prevPressed[i][buttonIndex] ?? false;
+          if (pressed && !wasPressed) nes.buttonDown((i + 1) as 1 | 2, nesButton);
+          else if (!pressed && wasPressed) nes.buttonUp((i + 1) as 1 | 2, nesButton);
+        }
+        prevPressed[i] = pad.buttons.map((b) => b.pressed);
       }
+      rafId = requestAnimationFrame(poll);
     }
-    configureAllGamepads();
-    window.addEventListener("gamepadconnected", configureAllGamepads);
-    window.addEventListener("gamepaddisconnected", configureAllGamepads);
-    return () => {
-      window.removeEventListener("gamepadconnected", configureAllGamepads);
-      window.removeEventListener("gamepaddisconnected", configureAllGamepads);
-    };
-  }, [status]);
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  }, [status, netplay]);
 
   // LB должен открывать оверлей и тогда, когда тот ещё закрыт — опрашиваем
   // геймпад независимо от useSpatialNavigation (та реагирует только пока

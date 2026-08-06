@@ -4,20 +4,10 @@
 // и явно применяем к нужному игроку через NES.buttonDown/buttonUp.
 import { Controller, type NES } from "jsnes";
 import { getNetplayKeyMap } from "../utils/keyboardControls";
+import { getNetplayGamepadMap } from "../utils/jsnesGamepad";
 
 let KEY_TO_BUTTON: Record<string, number> = {};
-
-// Совпадает с src/utils/jsnesGamepad.ts (стандартная раскладка Gamepad API).
-const GAMEPAD_BUTTON_TO_NES: Record<number, number> = {
-  0: Controller.BUTTON_A,
-  1: Controller.BUTTON_B,
-  8: Controller.BUTTON_SELECT,
-  9: Controller.BUTTON_START,
-  12: Controller.BUTTON_UP,
-  13: Controller.BUTTON_DOWN,
-  14: Controller.BUTTON_LEFT,
-  15: Controller.BUTTON_RIGHT,
-};
+let GAMEPAD_BUTTON_TO_NES: Map<number, number> = new Map();
 
 const AXIS_THRESHOLD = 0.5;
 
@@ -29,6 +19,7 @@ export class LocalInputReader {
 
   constructor() {
     KEY_TO_BUTTON = getNetplayKeyMap();
+    GAMEPAD_BUTTON_TO_NES = getNetplayGamepadMap();
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
   }
@@ -51,8 +42,8 @@ export class LocalInputReader {
     const pads = navigator.getGamepads?.() || [];
     const pad = pads[0] || pads[1];
     if (pad) {
-      for (const [index, button] of Object.entries(GAMEPAD_BUTTON_TO_NES)) {
-        if (pad.buttons[Number(index)]?.pressed) bits |= 1 << button;
+      for (const [index, button] of GAMEPAD_BUTTON_TO_NES) {
+        if (pad.buttons[index]?.pressed) bits |= 1 << button;
       }
       const [x = 0, y = 0] = pad.axes;
       if (y < -AXIS_THRESHOLD) bits |= 1 << Controller.BUTTON_UP;
