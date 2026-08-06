@@ -47,36 +47,45 @@
 
 .tabs {
   display: flex;
-  gap: var(--space-6);
-  padding: 0 var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
 
 .tab {
-  padding: var(--space-3) 0;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
+  flex: 1;
+  min-width: 140px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-body);
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: color var(--duration-hover), border-color var(--duration-hover);
+  transition: border-color var(--duration-hover), color var(--duration-hover), background var(--duration-hover), box-shadow var(--duration-hover);
 }
 
 .tab:hover {
+  border-color: var(--color-accent);
   color: var(--color-text);
 }
 
 .tab:focus-visible {
-  color: var(--color-text);
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .tabActive {
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .content {
