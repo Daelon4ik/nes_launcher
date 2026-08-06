@@ -178,7 +178,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
               onClick={onOpenStore}
               disabled={modalOpen}
             >
-              <Store size={20} />
+              <Store size={40} />
               Магазин
             </button>
             <button
@@ -188,7 +188,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
               onClick={onOpenSettings}
               disabled={modalOpen}
             >
-              <Settings size={20} />
+              <Settings size={40} />
               Настройки
             </button>
           </nav>

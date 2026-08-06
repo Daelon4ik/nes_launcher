@@ -1,4 +1,21 @@
 .screen {
+  /* Экран библиотеки крупнее остального UI (Big Picture с дивана) — локально
+     удваиваем токены отступов/шрифтов/радиусов, не трогая глобальные (см.
+     src/styles/index.css), чтобы не задеть другие экраны. Каскадом долетает
+     и до Shelf/GameCard — они используются только на этом экране. */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --font-size-title: 40px;
+  --font-size-card-title: 28px;
+  --font-size-body: 28px;
+  --font-size-secondary: 24px;
+  --radius-md: 16px;
+  --radius-sm: 8px;
+
   position: relative;
   height: 100vh;
   overflow: hidden;
@@ -55,7 +72,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-3) var(--space-6);
   flex-shrink: 0;
 }
 
@@ -75,7 +92,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 32px;
   font-weight: 600;
   outline: none;
   transition: color var(--duration-hover), border-color var(--duration-hover);
@@ -111,7 +128,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .filterSelect {
-  height: 36px;
+  height: 72px;
   padding: 0 var(--space-2) 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -138,7 +155,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .ghostButton {
-  height: 36px;
+  height: 72px;
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -169,14 +186,14 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-6) var(--space-6);
-  margin-top: var(--space-8);
+  padding: var(--space-2) var(--space-6) var(--space-6);
+  margin-top: var(--space-2);
 }
 
 .heroTitle {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 36px;
+  font-size: 72px;
   font-weight: 700;
   text-shadow: 0 2px 12px color-mix(in srgb, var(--color-bg) 60%, transparent);
 }
@@ -184,7 +201,7 @@ button.navTab:hover:not(:disabled) {
 .heroMeta {
   display: flex;
   gap: var(--space-4);
-  font-size: 16px;
+  font-size: 32px;
   font-weight: 500;
   color: var(--color-text-secondary);
 }
@@ -195,13 +212,13 @@ button.navTab:hover:not(:disabled) {
 }
 
 .playButton {
-  height: 44px;
+  height: 88px;
   padding: 0 var(--space-6);
-  border: 2px solid transparent;
+  border: 4px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-accent);
   color: #fff;
-  font-size: 16px;
+  font-size: 32px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
@@ -213,7 +230,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .playButton:focus-visible {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .playButton:disabled {
@@ -222,13 +239,13 @@ button.navTab:hover:not(:disabled) {
 }
 
 .coopButton {
-  height: 44px;
+  height: 88px;
   padding: 0 var(--space-5);
-  border: 1px solid var(--color-accent);
+  border: 2px solid var(--color-accent);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-accent);
-  font-size: 16px;
+  font-size: 32px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
@@ -240,7 +257,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .coopButton:focus-visible {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .coopButton:disabled {
@@ -249,13 +266,13 @@ button.navTab:hover:not(:disabled) {
 }
 
 .deleteButton {
-  height: 44px;
+  height: 88px;
   padding: 0 var(--space-5);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-text);
-  font-size: 16px;
+  font-size: 32px;
   cursor: pointer;
   outline: none;
   transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
@@ -268,7 +285,7 @@ button.navTab:hover:not(:disabled) {
 
 .deleteButton:focus-visible {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 25%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-error) 25%, transparent);
 }
 
 .deleteButton:disabled {
@@ -291,7 +308,7 @@ button.navTab:hover:not(:disabled) {
   margin: 0;
   padding: 0 var(--space-6);
   color: var(--color-text-secondary);
-  font-size: 16px;
+  font-size: 32px;
 }
 
 .error {
@@ -306,7 +323,7 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  height: 48px;
+  height: 96px;
   padding: 0 var(--space-6);
   background: var(--color-panel);
   border-top: 1px solid var(--color-border);
@@ -317,7 +334,7 @@ button.navTab:hover:not(:disabled) {
   align-items: center;
   gap: var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: 26px;
   font-weight: 500;
 }
 
@@ -325,14 +342,14 @@ button.navTab:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
+  min-width: 48px;
+  height: 48px;
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-panel-hover);
   color: var(--color-accent);
-  font-size: 12px;
+  font-size: 24px;
   font-weight: 700;
 }
 
@@ -347,7 +364,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .modal {
-  width: 400px;
+  width: 800px;
   max-width: calc(100vw - var(--space-6) * 2);
   padding: var(--space-6);
   border-radius: var(--radius-md);
@@ -376,7 +393,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .confirmDeleteButton {
-  height: 36px;
+  height: 72px;
   padding: 0 var(--space-4);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
