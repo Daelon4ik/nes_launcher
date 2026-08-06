@@ -18,6 +18,7 @@
   /* Типографика */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
+  --font-title: "PB Pixel", var(--font-sans);
 
   --font-size-title: 20px;
   --font-size-card-title: 14px;

@@ -6,6 +6,8 @@
 
 .details {
   width: 320px;
+  min-width: 250px;
+  max-width: 50vw;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -13,18 +15,24 @@
   padding: var(--space-6);
   border-right: 1px solid var(--color-border);
   overflow-y: auto;
+  resize: horizontal;
 }
 
 .detailsCover {
+  display: block;
   width: 100%;
-  aspect-ratio: 3 / 4;
+  height: auto;
   border-radius: var(--radius-md);
   background-color: var(--color-panel-hover);
-  background-size: cover;
-  background-position: center;
+  object-fit: contain;
+}
+
+div.detailsCover {
+  aspect-ratio: 3 / 4;
 }
 
 .detailsTitle {
+  font-family: var(--font-title);
   font-size: var(--font-size-title);
   font-weight: 600;
   margin: 0;
@@ -216,6 +224,7 @@
 }
 
 .libraryTitle {
+  font-family: var(--font-title);
   margin: 0;
   font-size: var(--font-size-title);
   font-weight: 600;
@@ -252,6 +261,33 @@
 }
 
 .settingsButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.filterSelect {
+  height: 36px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-size: var(--font-size-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.filterSelect:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.filterSelect:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.filterSelect:disabled {
   opacity: 0.6;
   cursor: default;
 }

@@ -19,6 +19,9 @@ declare module "jsnes" {
       setKeys: (keys: Record<number, [number, number, string]>) => void;
       onButtonDown: (player: 1 | 2, button: number) => void;
       onButtonUp: (player: 1 | 2, button: number) => void;
+      handleKeyDown: (e: KeyboardEvent) => void;
+      handleKeyUp: (e: KeyboardEvent) => void;
+      handleKeyPress: (e: KeyboardEvent) => void;
     };
     start(): void;
     stop(): void;

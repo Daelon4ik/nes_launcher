@@ -92,3 +92,18 @@ export function getNetplayKeyMap() {
   
   return map;
 }
+
+// Get mappings using e.code for robust local keyboard input
+export function getCodeBasedKeyMap() {
+  const controls = getSavedControls();
+  const map: Record<string, [1 | 2, number]> = {};
+  
+  for (const [action, binding] of Object.entries(controls.player1)) {
+    map[binding.code] = [1, ACTION_TO_BUTTON[action as ActionName]];
+  }
+  for (const [action, binding] of Object.entries(controls.player2)) {
+    map[binding.code] = [2, ACTION_TO_BUTTON[action as ActionName]];
+  }
+  
+  return map;
+}
