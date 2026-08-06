@@ -58,6 +58,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
   const { games, loading, error, install, remove } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [infoModalGame, setInfoModalGame] = useState<Game | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [filterMode, setFilterMode] = useState<"all" | "single" | "alternating" | "coop">("all");
   const screenRef = useRef<HTMLDivElement>(null);
@@ -90,7 +91,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
     [games, pendingDeleteId],
   );
 
-  const modalOpen = pendingDeleteGame !== null;
+  const modalOpen = pendingDeleteGame !== null || infoModalGame !== null;
 
   // Фон-герой: обложка игры в фокусе на весь экран. Меняется crossfade'ом, а не
   // мгновенно — гасим текущий кадр, подставляем новую картинку, включаем обратно
@@ -138,15 +139,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
     }
   }
 
-  async function handleAddGames() {
-    const selected = await open({
-      multiple: true,
-      filters: [{ name: "NES ROM", extensions: ["nes"] }],
-    });
-    if (!selected) return;
-    const paths = Array.isArray(selected) ? selected : [selected];
-    await install(paths);
-  }
+
 
   // Геймпад/клавиатура должны иметь что-то в фокусе сразу, без предварительного Tab —
   // первая карточка первой полки, а не элемент верхней навигации.
@@ -171,7 +164,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
         <header className={styles.topBar}>
           <nav className={styles.navTabs}>
             <span className={`${styles.navTab} ${styles.navTabActive}`}>
-              <Library size={40} />
+              <Library size={24} />
               Библиотека
             </span>
             <button
@@ -181,7 +174,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
               onClick={onOpenStore}
               disabled={modalOpen}
             >
-              <Store size={40} />
+              <Store size={24} />
               Магазин
             </button>
             <button
@@ -191,7 +184,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
               onClick={onOpenSettings}
               disabled={modalOpen}
             >
-              <Settings size={40} />
+              <Settings size={24} />
               Настройки
             </button>
           </nav>
@@ -209,15 +202,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
               <option value="alternating">По очереди (2 игрока)</option>
               <option value="single">Соло игра</option>
             </select>
-            <button
-              type="button"
-              data-nav
-              className={styles.ghostButton}
-              onClick={handleAddGames}
-              disabled={loading || modalOpen}
-            >
-              {loading ? "Добавление…" : "Добавить игры"}
-            </button>
+
           </div>
         </header>
 
@@ -258,6 +243,15 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                   disabled={modalOpen}
                 >
                   Удалить игру
+                </button>
+                <button
+                  type="button"
+                  data-nav
+                  className={styles.infoButton}
+                  onClick={() => setInfoModalGame(selectedGame)}
+                  disabled={modalOpen}
+                >
+                  Об игре
                 </button>
               </div>
             </>
@@ -344,6 +338,29 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 disabled={deleting}
               >
                 {deleting ? "Удаление…" : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {infoModalGame && (
+        <div className={styles.modalBackdrop} onKeyDown={(e) => {
+          if (e.key === "Escape") setInfoModalGame(null);
+        }}>
+          <div className={styles.modal} role="dialog" aria-modal="true">
+            <h2 className={styles.modalTitle}>{infoModalGame.title}</h2>
+            <p className={styles.modalText}>
+              {infoModalGame.description || "Описание отсутствует."}
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                data-nav
+                className={styles.ghostButton}
+                onClick={() => setInfoModalGame(null)}
+              >
+                Закрыть
               </button>
             </div>
           </div>

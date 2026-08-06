@@ -11,13 +11,14 @@
 }
 
 .option {
-  height: 36px;
-  padding: 0 var(--space-4);
+  height: 44px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text);
-  font-size: var(--font-size-secondary);
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition: border-color var(--duration-hover), box-shadow var(--duration-hover), background var(--duration-hover);

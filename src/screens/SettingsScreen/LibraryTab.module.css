@@ -41,13 +41,14 @@
 
 .removeButton {
   flex-shrink: 0;
-  height: 30px;
-  padding: 0 var(--space-3);
+  height: 44px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-secondary);
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
@@ -65,13 +66,14 @@
 
 .addRow {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
   margin-bottom: var(--space-6);
 }
 
 .input {
-  flex: 1;
-  height: 36px;
+  width: 240px;
+  height: 32px;
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -90,13 +92,14 @@
 
 .addButton {
   flex-shrink: 0;
-  height: 36px;
+  height: 32px;
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text);
-  font-size: var(--font-size-secondary);
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   outline: none;
   transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
@@ -118,14 +121,14 @@
 }
 
 .rescanButton {
-  height: 40px;
-  padding: 0 var(--space-4);
+  height: 44px;
+  padding: 0 var(--space-5);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-accent);
   color: #fff;
-  font-size: var(--font-size-body);
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition: background var(--duration-hover), box-shadow var(--duration-hover);

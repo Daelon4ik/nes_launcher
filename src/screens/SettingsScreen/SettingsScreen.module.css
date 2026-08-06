@@ -1,16 +1,4 @@
 .screen {
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
-  --space-6: 48px;
-  --space-8: 64px;
-  --font-size-title: 40px;
-  --font-size-card-title: 28px;
-  --font-size-body: 28px;
-  --font-size-secondary: 24px;
-  --radius-md: 16px;
-  --radius-sm: 8px;
 
   display: flex;
   flex-direction: column;
@@ -25,7 +13,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-6) var(--space-8) var(--space-4);
   flex-shrink: 0;
 }
 
@@ -45,7 +33,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-sans);
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 600;
   outline: none;
   transition: color var(--duration-hover), border-color var(--duration-hover);
@@ -78,14 +66,14 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-6) var(--space-4);
+  padding: var(--space-2) var(--space-8) var(--space-4);
   flex-shrink: 0;
 }
 
 .tab {
   flex: 1;
-  min-width: 140px;
-  height: 56px;
+  min-width: 100px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -94,7 +82,7 @@ button.navTab:hover:not(:disabled) {
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-secondary);
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
@@ -119,6 +107,6 @@ button.navTab:hover:not(:disabled) {
 
 .content {
   flex: 1;
-  padding: var(--space-6);
+  padding: var(--space-6) var(--space-8);
   overflow-y: auto;
 }

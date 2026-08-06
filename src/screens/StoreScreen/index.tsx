@@ -1,7 +1,9 @@
 // Магазин игр: поиск/просмотр ROM'ов на emu-land.net и установка в библиотеку.
 // См. docs/screens.md#5-store-screen и docs/store.md
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Gamepad2, Library, Settings, Store } from "lucide-react";
+import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getRomLibraryPaths } from "../../api/settings";
 import { storeBrowse, storeInstall, storeListFiles, storeSearch } from "../../api/store";
@@ -17,6 +19,7 @@ interface StoreScreenProps {
 const SEARCH_DEBOUNCE_MS = 400;
 
 export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
+  const { loading: installingLocal, install: installLocal } = useGameLibrary();
   const screenRef = useRef<HTMLDivElement>(null);
   useSpatialNavigation(screenRef);
 
@@ -147,6 +150,16 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
       .finally(() => setInstallingFid(null));
   }
 
+  async function handleAddGames() {
+    const selected = await open({
+      multiple: true,
+      filters: [{ name: "NES ROM", extensions: ["nes"] }],
+    });
+    if (!selected) return;
+    const paths = Array.isArray(selected) ? selected : [selected];
+    await installLocal(paths);
+  }
+
   const letterLabel = useMemo(() => letter.toUpperCase(), [letter]);
 
   return (
@@ -161,11 +174,11 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
               onClick={onBack}
               disabled={anyModalOpen}
             >
-              <Library size={40} />
+              <Library size={24} />
               Библиотека
             </button>
             <span className={`${styles.navTab} ${styles.navTabActive}`}>
-              <Store size={40} />
+              <Store size={24} />
               Магазин
             </span>
             <button
@@ -175,7 +188,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
               onClick={onOpenSettings}
               disabled={anyModalOpen}
             >
-              <Settings size={40} />
+              <Settings size={24} />
               Настройки
             </button>
           </nav>
@@ -190,6 +203,15 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
               onChange={(e) => setQueryInput(e.target.value)}
               disabled={anyModalOpen}
             />
+            <button
+              type="button"
+              data-nav
+              className={styles.ghostButton}
+              onClick={handleAddGames}
+              disabled={installingLocal || anyModalOpen}
+            >
+              {installingLocal ? "Добавление…" : "Добавить игры"}
+            </button>
           </div>
         </header>
 
@@ -233,39 +255,40 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
                 disabled={anyModalOpen}
               >
                 <span className={styles.tileCover}>
-                  <Gamepad2 size={64} strokeWidth={1.5} />
+                  <Gamepad2 size={32} strokeWidth={1.5} />
                 </span>
                 <span className={styles.tileTitle}>{game.title}</span>
               </button>
             ))}
           </div>
 
-          {!isSearching && totalPages > 1 && (
-            <div className={styles.pagination}>
-              <button
-                type="button"
-                data-nav
-                className={styles.ghostButton}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1 || anyModalOpen}
-              >
-                ← Назад
-              </button>
-              <span className={styles.pageIndicator}>
-                Страница {page} из {totalPages}
-              </span>
-              <button
-                type="button"
-                data-nav
-                className={styles.ghostButton}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages || anyModalOpen}
-              >
-                Далее →
-              </button>
-            </div>
-          )}
         </main>
+
+        {!isSearching && totalPages > 1 && (
+          <div className={styles.pagination}>
+            <button
+              type="button"
+              data-nav
+              className={styles.ghostButton}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || anyModalOpen}
+            >
+              ← Назад
+            </button>
+            <span className={styles.pageIndicator}>
+              Страница {page} из {totalPages}
+            </span>
+            <button
+              type="button"
+              data-nav
+              className={styles.ghostButton}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || anyModalOpen}
+            >
+              Далее →
+            </button>
+          </div>
+        )}
 
         <footer className={styles.hintFooter}>
           {anyModalOpen ? (

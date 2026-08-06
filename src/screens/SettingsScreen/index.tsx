@@ -61,7 +61,7 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
             className={styles.navTab}
             onClick={onBack}
           >
-            <Library size={40} />
+            <Library size={24} />
             Библиотека
           </button>
           <button
@@ -70,11 +70,11 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
             className={styles.navTab}
             onClick={onOpenStore}
           >
-            <Store size={40} />
+            <Store size={24} />
             Магазин
           </button>
           <span className={`${styles.navTab} ${styles.navTabActive}`}>
-            <Settings size={40} />
+            <Settings size={24} />
             Настройки
           </span>
         </nav>

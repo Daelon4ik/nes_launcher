@@ -1,21 +1,4 @@
 .screen {
-  /* Экран библиотеки крупнее остального UI (Big Picture с дивана) — локально
-     удваиваем токены отступов/шрифтов/радиусов, не трогая глобальные (см.
-     src/styles/index.css), чтобы не задеть другие экраны. Каскадом долетает
-     и до Shelf/GameCard — они используются только на этом экране. */
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
-  --space-6: 48px;
-  --space-8: 64px;
-  --font-size-title: 40px;
-  --font-size-card-title: 28px;
-  --font-size-body: 28px;
-  --font-size-secondary: 24px;
-  --radius-md: 16px;
-  --radius-sm: 8px;
-
   position: relative;
   height: 100vh;
   overflow: hidden;
@@ -72,7 +55,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-8) var(--space-4);
   flex-shrink: 0;
 }
 
@@ -92,7 +77,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-sans);
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 600;
   outline: none;
   transition: color var(--duration-hover), border-color var(--duration-hover);
@@ -128,7 +113,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .filterSelect {
-  height: 72px;
+  height: 36px;
   padding: 0 var(--space-2) 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -155,7 +140,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .ghostButton {
-  height: 72px;
+  height: 36px;
   padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -185,15 +170,17 @@ button.navTab:hover:not(:disabled) {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-6) var(--space-6);
+  padding: var(--space-2) var(--space-8) var(--space-6);
   margin-top: var(--space-2);
 }
 
 .heroTitle {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 72px;
+  font-size: 36px;
   font-weight: 700;
   text-shadow: 0 2px 12px color-mix(in srgb, var(--color-bg) 60%, transparent);
 }
@@ -201,24 +188,31 @@ button.navTab:hover:not(:disabled) {
 .heroMeta {
   display: flex;
   gap: var(--space-4);
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .heroActions {
   display: flex;
+  justify-content: flex-start;
+  width: 100%;
   gap: var(--space-3);
 }
 
 .playButton {
-  height: 88px;
+  flex: 1;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
   padding: 0 var(--space-6);
   border: 4px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-accent);
   color: #fff;
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
@@ -239,13 +233,18 @@ button.navTab:hover:not(:disabled) {
 }
 
 .coopButton {
-  height: 88px;
+  flex: 1;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
   padding: 0 var(--space-5);
   border: 2px solid var(--color-accent);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-accent);
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
@@ -266,13 +265,18 @@ button.navTab:hover:not(:disabled) {
 }
 
 .deleteButton {
-  height: 88px;
+  flex: 1;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
   padding: 0 var(--space-5);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-text);
-  font-size: 32px;
+  font-size: 16px;
   cursor: pointer;
   outline: none;
   transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
@@ -285,10 +289,43 @@ button.navTab:hover:not(:disabled) {
 
 .deleteButton:focus-visible {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-error) 25%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 25%, transparent);
 }
 
 .deleteButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.infoButton {
+  flex: 1;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 var(--space-5);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.infoButton:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.infoButton:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.infoButton:disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -308,7 +345,7 @@ button.navTab:hover:not(:disabled) {
   margin: 0;
   padding: 0 var(--space-6);
   color: var(--color-text-secondary);
-  font-size: 32px;
+  font-size: var(--font-size-body);
 }
 
 .error {
@@ -323,8 +360,8 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  height: 96px;
-  padding: 0 var(--space-6);
+  height: 48px;
+  padding: 0 var(--space-8);
   background: var(--color-panel);
   border-top: 1px solid var(--color-border);
 }
@@ -334,7 +371,7 @@ button.navTab:hover:not(:disabled) {
   align-items: center;
   gap: var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 26px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -342,14 +379,14 @@ button.navTab:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
-  height: 48px;
+  min-width: 24px;
+  height: 24px;
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-panel-hover);
   color: var(--color-accent);
-  font-size: 24px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -364,7 +401,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .modal {
-  width: 800px;
+  width: 400px;
   max-width: calc(100vw - var(--space-6) * 2);
   padding: var(--space-6);
   border-radius: var(--radius-md);
@@ -393,7 +430,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .confirmDeleteButton {
-  height: 72px;
+  height: 36px;
   padding: 0 var(--space-4);
   border: 2px solid transparent;
   border-radius: var(--radius-md);

@@ -7,6 +7,7 @@
 
 .tabs {
   display: flex;
+  justify-content: center;
   gap: 1rem;
 }
 
@@ -50,27 +51,38 @@
 
 .playerColumn h3 {
   margin: 0 0 1rem 0;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   color: var(--accent-color);
 }
 
 .keyRow {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1.5rem;
+}
+
+.keyRow > span {
+  font-size: 1.1rem;
+  font-weight: 500;
+  width: 140px;
 }
 
 .keyButton {
   background: var(--bg-hover);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  height: 44px;
+  padding: 0 var(--space-5);
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
   cursor: pointer;
   min-width: 120px;
   transition: all 0.2s ease;
   font-family: inherit;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .keyButton:hover {
@@ -95,10 +107,16 @@
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  height: 44px;
+  padding: 0 var(--space-5);
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .resetButton:hover {
@@ -145,7 +163,7 @@
 .gamepadIconWrapper {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
 }
 
