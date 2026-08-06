@@ -11,7 +11,9 @@
   text-align: left;
   cursor: pointer;
   outline: none;
-  transition: background var(--duration-hover), border-color var(--duration-hover), box-shadow var(--duration-hover);
+  transform: scale(1);
+  transition: background var(--duration-hover), border-color var(--duration-hover),
+    box-shadow var(--duration-hover), transform 150ms ease-out;
 }
 
 .card:hover:not(:disabled) {
@@ -23,10 +25,12 @@
   cursor: default;
 }
 
-/* Фокус (клавиатура/геймпад) — он же выбор: крупный, читаемый с расстояния индикатор. */
+/* Фокус (клавиатура/геймпад) — он же выбор: крупный, читаемый с расстояния индикатор.
+   Лёгкое увеличение карточки — часть Big Picture стиля Main Screen, см. docs/design.md#анимации. */
 .selected {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  transform: scale(1.08);
 }
 
 .cover {

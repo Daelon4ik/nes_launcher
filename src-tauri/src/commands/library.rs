@@ -80,13 +80,20 @@ fn resolve_rom_dirs(conn: &Connection, app: &AppHandle) -> Result<Vec<PathBuf>, 
         }
     }
 
+    Ok(vec![default_rom_dir(app)?])
+}
+
+/// Дефолтная папка с ROM'ами, когда пользователь не настроил ни одной в Settings
+/// (создаётся при отсутствии). pub(crate): переиспользуется в commands::store для
+/// установки игр из магазина в тот же дефолтный путь.
+pub(crate) fn default_rom_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let default_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("roms");
     std::fs::create_dir_all(&default_dir).map_err(|e| e.to_string())?;
-    Ok(vec![default_dir])
+    Ok(default_dir)
 }
 
 fn find_rom_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -111,7 +118,9 @@ fn is_nes_rom(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("nes"))
 }
 
-fn humanize_title(rom_path: &Path) -> String {
+/// pub(crate): переиспользуется в commands::store, чтобы установленные из
+/// магазина игры получали название тем же способом, что и вручную добавленные.
+pub(crate) fn humanize_title(rom_path: &Path) -> String {
     let stem = rom_path
         .file_stem()
         .and_then(|s| s.to_str())

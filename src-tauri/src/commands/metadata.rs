@@ -45,7 +45,9 @@ pub async fn update_metadata(
         .ok_or_else(|| format!("Игра с id={game_id} не найдена"))
 }
 
-async fn download_cover(app: &AppHandle, game_id: i64, url: &str) -> Result<String, String> {
+/// pub(crate): переиспользуется в commands::store при автозагрузке метаданных
+/// сразу после установки игры из магазина.
+pub(crate) async fn download_cover(app: &AppHandle, game_id: i64, url: &str) -> Result<String, String> {
     let bytes = download_image(url).await?;
 
     let covers_dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("covers");

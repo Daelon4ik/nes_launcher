@@ -1,9 +1,10 @@
 use scraper::{Html, Selector};
 
 /// Источник метаданных и обложек игр — раздел Dendy/NES на emu-land.net.
-const BASE_URL: &str = "https://www.emu-land.net";
+/// pub(crate): переиспользуется в store::scraper (тот же сайт и раздел).
+pub(crate) const BASE_URL: &str = "https://www.emu-land.net";
 /// Внутренний id раздела "Игры NES / Dendy" на emu-land.net (из формы /search_games).
-const NES_SECTION_ID: &str = "13";
+pub(crate) const NES_SECTION_ID: &str = "13";
 const USER_AGENT: &str = "Mozilla/5.0 (compatible; NESLauncher/0.1)";
 
 pub struct ScrapedMetadata {
@@ -13,7 +14,7 @@ pub struct ScrapedMetadata {
     pub player_mode: Option<String>,
 }
 
-fn build_client() -> Result<reqwest::Client, String> {
+pub(crate) fn build_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .build()
@@ -29,6 +30,15 @@ pub async fn fetch_metadata(rom_title: &str) -> Result<ScrapedMetadata, String> 
         .ok_or_else(|| format!("По названию «{rom_title}» ничего не найдено на emu-land.net"))?;
 
     fetch_game_page(&client, &game_url).await
+}
+
+/// Как fetch_metadata, но без поиска по названию — для случаев, когда URL страницы
+/// игры уже точно известен (store::scraper при установке с магазина: slug там уже
+/// определён через поиск/просмотр по буквам, повторно искать по названию не нужно
+/// и рискованнее — найденное по названию совпадение не гарантированно то же самое).
+pub(crate) async fn fetch_metadata_by_url(url: &str) -> Result<ScrapedMetadata, String> {
+    let client = build_client()?;
+    fetch_game_page(&client, url).await
 }
 
 /// Скачивает картинку по URL (обложку/скриншот) — например, для локального кэша,
@@ -152,7 +162,7 @@ fn parse_player_mode(text: &str) -> Option<String> {
     Some(mode.to_string())
 }
 
-fn normalize_url(src: &str) -> String {
+pub(crate) fn normalize_url(src: &str) -> String {
     if let Some(rest) = src.strip_prefix("//") {
         format!("https://{rest}")
     } else if src.starts_with('/') {

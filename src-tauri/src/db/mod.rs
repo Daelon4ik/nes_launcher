@@ -109,6 +109,19 @@ pub fn game_rom_path(conn: &Connection, game_id: i64) -> rusqlite::Result<Option
     .optional()
 }
 
+/// Обратный поиск к game_rom_path — используется в commands::store сразу после
+/// insert_game_if_missing, чтобы узнать id только что установленной из магазина игры
+/// (сама insert_game_if_missing его не возвращает — INSERT OR IGNORE, id не всегда
+/// свежий rowid, если запись уже существовала).
+pub fn game_id_by_rom_path(conn: &Connection, rom_path: &str) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT id FROM game WHERE rom_path = ?1",
+        params![rom_path],
+        |row| row.get(0),
+    )
+    .optional()
+}
+
 /// Удаляет игру и связанные с ней сессии/сохранения (нет ON DELETE CASCADE в схеме).
 pub fn delete_game(conn: &Connection, game_id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM play_session WHERE game_id = ?1", params![game_id])?;
@@ -280,6 +293,20 @@ mod tests {
         insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
         let id = conn.last_insert_rowid();
         assert_eq!(game_rom_path(&conn, id).unwrap(), Some("/roms/contra.nes".to_string()));
+    }
+
+    #[test]
+    fn game_id_by_rom_path_finds_inserted_game() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+        assert_eq!(game_id_by_rom_path(&conn, "/roms/contra.nes").unwrap(), Some(id));
+    }
+
+    #[test]
+    fn game_id_by_rom_path_returns_none_for_unknown_path() {
+        let conn = memory_db();
+        assert_eq!(game_id_by_rom_path(&conn, "/roms/unknown.nes").unwrap(), None);
     }
 
     #[test]

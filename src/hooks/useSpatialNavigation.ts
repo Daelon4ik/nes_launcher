@@ -68,7 +68,16 @@ function focusNearest(current: HTMLElement, direction: Direction, container: HTM
     }
   }
 
-  best?.focus();
+  focusAndReveal(best);
+}
+
+// Помимо DOM-фокуса, докручивает элемент в видимую область плавным скроллом —
+// нужно для горизонтальных полок Main Screen (см. docs/design.md#компоненты):
+// без этого сфокусированная спатиальной навигацией карточка может остаться
+// визуально за пределами скроллящегося контейнера полки.
+function focusAndReveal(el: HTMLElement | null | undefined) {
+  el?.focus();
+  el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
 }
 
 export function useSpatialNavigation(containerRef: RefObject<HTMLElement | null>) {
@@ -81,7 +90,7 @@ export function useSpatialNavigation(containerRef: RefObject<HTMLElement | null>
       if (current instanceof HTMLElement && container!.contains(current)) {
         focusNearest(current, direction, container!);
       } else {
-        container!.querySelector<HTMLElement>(NAV_SELECTOR)?.focus();
+        focusAndReveal(container!.querySelector<HTMLElement>(NAV_SELECTOR));
       }
     }
 

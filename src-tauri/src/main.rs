@@ -2,6 +2,7 @@ mod commands;
 mod db;
 mod metadata;
 mod netplay;
+mod store;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -44,6 +45,10 @@ fn main() {
             commands::netplay::netplay_join_host,
             commands::netplay::netplay_send_input,
             commands::netplay::netplay_disconnect,
+            commands::store::store_search,
+            commands::store::store_browse,
+            commands::store::store_list_files,
+            commands::store::store_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
