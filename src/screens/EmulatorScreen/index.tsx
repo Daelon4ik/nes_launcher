@@ -8,7 +8,7 @@ import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/sa
 import { disconnect as disconnectNetplay } from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
 import { standardGamepadConfig } from "../../utils/jsnesGamepad";
-import { getJsnesKeysConfig } from "../../utils/keyboardControls";
+import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
 import type { NetplaySession } from "../../types/netplay";
@@ -158,13 +158,42 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
-        // Применяем сохраненные настройки управления клавиатурой
-        browserRef.current.keyboard.setKeys(getJsnesKeysConfig());
+        // Из-за того что jsnes использует устаревший e.keyCode, в русской раскладке (IME)
+        // он возвращает 229 для всех клавиш, что приводит к ложным срабатываниям ("выстрел" от любой кнопки).
+        // Поэтому мы отключаем стандартные обработчики jsnes и слушаем e.code напрямую.
+        const keyboard = browserRef.current.keyboard;
+        document.removeEventListener("keydown", keyboard.handleKeyDown);
+        document.removeEventListener("keyup", keyboard.handleKeyUp);
+        document.removeEventListener("keypress", keyboard.handleKeyPress);
 
-        // jsnes по умолчанию отключает клавиатуру для игрока, если к нему привязан геймпад.
-        // Переопределяем коллбеки клавиатуры, чтобы она работала всегда, независимо от геймпадов.
-        browserRef.current.keyboard.onButtonDown = browserRef.current.nes.buttonDown;
-        browserRef.current.keyboard.onButtonUp = browserRef.current.nes.buttonUp;
+        const codeMap = getCodeBasedKeyMap();
+
+        const onKeyDown = (e: KeyboardEvent) => {
+          const mapped = codeMap[e.code];
+          if (mapped) {
+            browserRef.current?.nes.buttonDown(mapped[0], mapped[1]);
+            e.preventDefault();
+          }
+        };
+
+        const onKeyUp = (e: KeyboardEvent) => {
+          const mapped = codeMap[e.code];
+          if (mapped) {
+            browserRef.current?.nes.buttonUp(mapped[0], mapped[1]);
+            e.preventDefault();
+          }
+        };
+
+        document.addEventListener("keydown", onKeyDown);
+        document.addEventListener("keyup", onKeyUp);
+
+        // Сохраняем оригинальный destroy, чтобы также отписаться от наших событий
+        const originalDestroy = browserRef.current.destroy.bind(browserRef.current);
+        browserRef.current.destroy = () => {
+          document.removeEventListener("keydown", onKeyDown);
+          document.removeEventListener("keyup", onKeyUp);
+          originalDestroy();
+        };
 
         fitScreenPixelPerfect(stageRef.current);
         setStatus("playing");
