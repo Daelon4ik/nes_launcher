@@ -21,7 +21,7 @@ export function App() {
   }
 
   if (screen === "settings") {
-    return <SettingsScreen onBack={returnToMain} />;
+    return <SettingsScreen onBack={returnToMain} onOpenStore={() => setScreen("store")} />;
   }
 
   if (screen === "store") {

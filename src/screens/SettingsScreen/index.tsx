@@ -1,7 +1,7 @@
 // Экран настроек: библиотека, метаданные, эмулятор, лаунчер.
 // См. docs/screens.md#2-settings-screen
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon } from "../../components/icons";
+import { Library, Settings, Store } from "lucide-react";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getTheme, setTheme as persistTheme } from "../../api/settings";
 import type { Theme } from "../../types/settings";
@@ -24,9 +24,10 @@ const TABS: { id: TabId; label: string }[] = [
 
 interface SettingsScreenProps {
   onBack: () => void;
+  onOpenStore: () => void;
 }
 
-export function SettingsScreen({ onBack }: SettingsScreenProps) {
+export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
   const [activeTab, setActiveTab] = useState<TabId>("library");
   const [theme, setThemeState] = useState<Theme>("system");
   const screenRef = useRef<HTMLDivElement>(null);
@@ -52,12 +53,31 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
 
   return (
     <div className={styles.screen} ref={screenRef}>
-      <header className={styles.header}>
-        <button type="button" data-nav className={styles.backButton} onClick={onBack}>
-          <ArrowLeftIcon />
-          Библиотека
-        </button>
-        <h1 className={styles.title}>Настройки</h1>
+      <header className={styles.topBar}>
+        <nav className={styles.navTabs}>
+          <button
+            type="button"
+            data-nav
+            className={styles.navTab}
+            onClick={onBack}
+          >
+            <Library size={40} />
+            Библиотека
+          </button>
+          <button
+            type="button"
+            data-nav
+            className={styles.navTab}
+            onClick={onOpenStore}
+          >
+            <Store size={40} />
+            Магазин
+          </button>
+          <span className={`${styles.navTab} ${styles.navTabActive}`}>
+            <Settings size={40} />
+            Настройки
+          </span>
+        </nav>
       </header>
 
       <nav className={styles.tabs}>
