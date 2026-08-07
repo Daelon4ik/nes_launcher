@@ -7,7 +7,8 @@ import { Library, Settings, Store } from "lucide-react";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
-import { coverImageStyle } from "../../utils/coverImage";
+import { coverImageStyle, coverImageSrc } from "../../utils/coverImage";
+import logo from "../../assets/logo.png";
 import styles from "./MainScreen.module.css";
 
 // «Недавно запущенные» — витрина, а не полный список: без лимита при большой
@@ -155,39 +156,46 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
       <div className={styles.heroLayer} aria-hidden="true">
         <div
           className={styles.heroBackdrop}
-          style={{ ...coverImageStyle(heroCover), opacity: heroVisible ? 1 : 0 }}
+          style={{
+            ...coverImageStyle(heroCover),
+            "--bg-image": heroCover ? `url("${coverImageSrc(heroCover)}")` : "none",
+            opacity: heroVisible ? 1 : 0,
+          } as React.CSSProperties}
         />
         <div className={styles.heroScrim} />
       </div>
 
       <div className={styles.content}>
         <header className={styles.topBar}>
-          <nav className={styles.navTabs}>
-            <span className={`${styles.navTab} ${styles.navTabActive}`}>
-              <Library size={24} />
-              Библиотека
-            </span>
-            <button
-              type="button"
-              data-nav
-              className={styles.navTab}
-              onClick={onOpenStore}
-              disabled={modalOpen}
-            >
-              <Store size={24} />
-              Магазин
-            </button>
-            <button
-              type="button"
-              data-nav
-              className={styles.navTab}
-              onClick={onOpenSettings}
-              disabled={modalOpen}
-            >
-              <Settings size={24} />
-              Настройки
-            </button>
-          </nav>
+          <div className={styles.leftNav}>
+            <img src={logo} alt="NES Launcher" className={styles.logo} />
+            <nav className={styles.navTabs}>
+              <span className={`${styles.navTab} ${styles.navTabActive}`}>
+                <Library size={24} />
+                Библиотека
+              </span>
+              <button
+                type="button"
+                data-nav
+                className={styles.navTab}
+                onClick={onOpenStore}
+                disabled={modalOpen}
+              >
+                <Store size={24} />
+                Магазин
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={styles.navTab}
+                onClick={onOpenSettings}
+                disabled={modalOpen}
+              >
+                <Settings size={24} />
+                Настройки
+              </button>
+            </nav>
+          </div>
 
           <div className={styles.headerControls}>
             <select
@@ -238,20 +246,20 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 <button
                   type="button"
                   data-nav
-                  className={styles.deleteButton}
-                  onClick={() => setPendingDeleteId(selectedGame.id)}
-                  disabled={modalOpen}
-                >
-                  Удалить игру
-                </button>
-                <button
-                  type="button"
-                  data-nav
                   className={styles.infoButton}
                   onClick={() => setInfoModalGame(selectedGame)}
                   disabled={modalOpen}
                 >
                   Об игре
+                </button>
+                <button
+                  type="button"
+                  data-nav
+                  className={styles.deleteButton}
+                  onClick={() => setPendingDeleteId(selectedGame.id)}
+                  disabled={modalOpen}
+                >
+                  Удалить игру
                 </button>
               </div>
             </>

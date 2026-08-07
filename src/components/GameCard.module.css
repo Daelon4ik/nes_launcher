@@ -6,8 +6,8 @@
   padding: var(--space-2);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
+  background: #1B1D23;
+  color: #F2F2F4;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -18,7 +18,7 @@
 }
 
 .card:hover:not(:disabled) {
-  background: var(--color-panel-hover);
+  background: #22242C;
 }
 
 .card:disabled {
@@ -39,7 +39,7 @@
   width: 100%;
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-md);
-  background-color: var(--color-panel-hover);
+  background-color: #22242C;
   background-size: cover;
   background-position: center;
 }

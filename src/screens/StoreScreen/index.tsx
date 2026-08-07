@@ -8,6 +8,7 @@ import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getRomLibraryPaths } from "../../api/settings";
 import { storeBrowse, storeInstall, storeListFiles, storeSearch } from "../../api/store";
 import { BROWSE_LETTERS, type StoreFile, type StoreGameSummary } from "../../types/store";
+import logo from "../../assets/logo.png";
 import styles from "./StoreScreen.module.css";
 
 interface StoreScreenProps {
@@ -166,32 +167,35 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     <div className={styles.screen} ref={screenRef}>
       <div className={styles.content}>
         <header className={styles.topBar}>
-          <nav className={styles.navTabs}>
-            <button
-              type="button"
-              data-nav
-              className={styles.navTab}
-              onClick={onBack}
-              disabled={anyModalOpen}
-            >
-              <Library size={24} />
-              Библиотека
-            </button>
-            <span className={`${styles.navTab} ${styles.navTabActive}`}>
-              <Store size={24} />
-              Магазин
-            </span>
-            <button
-              type="button"
-              data-nav
-              className={styles.navTab}
-              onClick={onOpenSettings}
-              disabled={anyModalOpen}
-            >
-              <Settings size={24} />
-              Настройки
-            </button>
-          </nav>
+          <div className={styles.leftNav}>
+            <img src={logo} alt="NES Launcher" className={styles.logo} />
+            <nav className={styles.navTabs}>
+              <button
+                type="button"
+                data-nav
+                className={styles.navTab}
+                onClick={onBack}
+                disabled={anyModalOpen}
+              >
+                <Library size={24} />
+                Библиотека
+              </button>
+              <span className={`${styles.navTab} ${styles.navTabActive}`}>
+                <Store size={24} />
+                Магазин
+              </span>
+              <button
+                type="button"
+                data-nav
+                className={styles.navTab}
+                onClick={onOpenSettings}
+                disabled={anyModalOpen}
+              >
+                <Settings size={24} />
+                Настройки
+              </button>
+            </nav>
+          </div>
 
           <div className={styles.headerControls}>
             <input

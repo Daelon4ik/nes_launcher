@@ -10,6 +10,8 @@ import { MetadataTab } from "./MetadataTab";
 import { EmulatorTab } from "./EmulatorTab";
 import { NetworkTab } from "./NetworkTab";
 import { LauncherTab } from "./LauncherTab";
+import logo from "../../assets/logo.png";
+import controllerImg from "../../assets/controller.png";
 import styles from "./SettingsScreen.module.css";
 
 type TabId = "library" | "metadata" | "emulator" | "network" | "launcher";
@@ -54,30 +56,33 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
   return (
     <div className={styles.screen} ref={screenRef}>
       <header className={styles.topBar}>
-        <nav className={styles.navTabs}>
-          <button
-            type="button"
-            data-nav
-            className={styles.navTab}
-            onClick={onBack}
-          >
-            <Library size={24} />
-            Библиотека
-          </button>
-          <button
-            type="button"
-            data-nav
-            className={styles.navTab}
-            onClick={onOpenStore}
-          >
-            <Store size={24} />
-            Магазин
-          </button>
-          <span className={`${styles.navTab} ${styles.navTabActive}`}>
-            <Settings size={24} />
-            Настройки
-          </span>
-        </nav>
+        <div className={styles.leftNav}>
+          <img src={logo} alt="NES Launcher" className={styles.logo} />
+          <nav className={styles.navTabs}>
+            <button
+              type="button"
+              data-nav
+              className={styles.navTab}
+              onClick={onBack}
+            >
+              <Library size={24} />
+              Библиотека
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={styles.navTab}
+              onClick={onOpenStore}
+            >
+              <Store size={24} />
+              Магазин
+            </button>
+            <span className={`${styles.navTab} ${styles.navTabActive}`}>
+              <Settings size={24} />
+              Настройки
+            </span>
+          </nav>
+        </div>
       </header>
 
       <nav className={styles.tabs}>
@@ -95,6 +100,9 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
       </nav>
 
       <div className={styles.content}>
+        {activeTab !== "emulator" && (
+          <img src={controllerImg} alt="" className={styles.controllerBg} />
+        )}
         {activeTab === "library" && <LibraryTab />}
         {activeTab === "metadata" && <MetadataTab />}
         {activeTab === "emulator" && <EmulatorTab />}

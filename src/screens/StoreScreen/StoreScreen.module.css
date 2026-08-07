@@ -19,8 +19,56 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
-  padding: var(--space-6) var(--space-8) var(--space-4);
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  margin-bottom: var(--space-4);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.topBar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image: url('../../assets/covers_banner.jpg');
+  background-size: auto 150%;
+  background-position: left center;
+  background-repeat: repeat-x;
+  animation: scrollBanner 40s linear infinite;
+  filter: blur(4px) saturate(1.3) contrast(1.1);
+}
+
+.topBar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+    radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.8) 100%),
+    linear-gradient(to right, var(--color-bg) 0%, transparent 15%, transparent 85%, var(--color-bg) 100%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-bg) 80%, transparent) 0%, var(--color-bg) 100%);
+  background-size: 100% 4px, 100% 100%, 100% 100%, 100% 100%;
+  pointer-events: none;
+}
+
+@keyframes scrollBanner {
+  0% { background-position: 0 center; }
+  100% { background-position: -2000px center; }
+}
+
+.leftNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.logo {
+  height: 48px;
+  object-fit: contain;
 }
 
 .navTabs {
@@ -175,8 +223,8 @@ button.navTab:hover:not(:disabled) {
   padding: var(--space-2);
   border: 2px solid transparent;
   border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
+  background: #1B1D23;
+  color: #F2F2F4;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -187,7 +235,7 @@ button.navTab:hover:not(:disabled) {
 }
 
 .tile:hover:not(:disabled) {
-  background: var(--color-panel-hover);
+  background: #22242C;
 }
 
 .tile:disabled {
@@ -208,8 +256,8 @@ button.navTab:hover:not(:disabled) {
   width: 100%;
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-md);
-  background: var(--color-panel-hover);
-  color: var(--color-text-secondary);
+  background: #22242C;
+  color: #9A9CA6;
   opacity: 0.8;
 }
 
