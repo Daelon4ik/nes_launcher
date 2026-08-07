@@ -5,7 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
 import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/saves";
-import { disconnect as disconnectNetplay } from "../../api/netplay";
+import {
+  disconnect as disconnectNetplay,
+  sendInput as sendNetplayInput,
+  steamDisconnect,
+  steamSendInput,
+} from "../../api/netplay";
 import { NetplayEngine } from "../../netplay/engine";
 import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
@@ -129,6 +134,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
           romData: netplay.romData,
           localPlayer: netplay.localPlayer,
           volume,
+          sendInput: netplay.transport === "steam" ? steamSendInput : sendNetplayInput,
           onError: (err) => {
             if (cancelled) return;
             setErrorMessage(String(err));
@@ -227,7 +233,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
       if (netplayEngineRef.current) {
         netplayEngineRef.current.destroy();
         netplayEngineRef.current = null;
-        disconnectNetplay().catch(() => {});
+        (netplay?.transport === "steam" ? steamDisconnect() : disconnectNetplay()).catch(() => {});
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -15,6 +15,8 @@
 - [Экраны и UI](docs/screens.md)
 - [Внешний вид](docs/design.md)
 - [Модель данных](docs/data-model.md)
+- [P2P-кооп (LAN и Steam)](docs/netplay.md)
+- [Магазин игр](docs/store.md)
 - [Roadmap](docs/roadmap.md)
 
 ## Структура проекта
@@ -53,4 +55,11 @@ npm run dev  # http://localhost:1420
 
 ```bash
 GDK_BACKEND=x11 npm run tauri dev
+```
+
+**Кооп через Steam:** `steamworks-sys` вендорит `libsteam_api.so`, но не копирует его рядом с итоговым бинарником — без дополнительного шага инициализация Steam в приложении падает с ошибкой (библиотека не найдена). Разово скопировать файл (или каждый раз задавать `LD_LIBRARY_PATH`) — см. [docs/netplay.md](docs/netplay.md#настройка-сборкиразработки):
+
+```bash
+find ~/.cargo/registry -name libsteam_api.so
+cp <найденный путь для вашей платформы> src-tauri/target/debug/
 ```

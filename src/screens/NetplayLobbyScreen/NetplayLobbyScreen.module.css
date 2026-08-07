@@ -155,3 +155,73 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.steamIdRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.steamId {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body);
+  user-select: all;
+}
+
+.copyButton {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.copyButton:hover {
+  border-color: var(--color-accent);
+}
+
+.copyButton:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.steamIdInput {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+  height: 40px;
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body);
+  outline: none;
+  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.steamIdInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.steamIdInput:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.steamIdInput:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

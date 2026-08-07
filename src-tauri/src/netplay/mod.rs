@@ -1,5 +1,6 @@
 pub mod discovery;
 pub mod session;
+pub mod steam;
 
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::JoinHandle;
@@ -79,5 +80,30 @@ impl NetplayState {
         if let Some(session) = self.session.take() {
             session.reader_task.abort();
         }
+    }
+}
+
+/// Управляемое Tauri-состояние Steam-транспорта кооп-сессии (см. steam.rs) —
+/// второй, независимый от LAN способ подключения, тот же протокол
+/// (NetplayMessage), тот же набор Tauri-событий (netplay://...), другой
+/// транспорт (ISteamNetworkingMessages вместо TCP). См. docs/netplay.md.
+#[derive(Default)]
+pub struct SteamNetplayState {
+    /// Ленивая инициализация — только при первом использовании фичи, не при
+    /// старте приложения, чтобы не тянуть зависимость от Steam для тех, кто
+    /// эту фичу не трогает.
+    pub client: Option<steamworks::Client>,
+    /// Фоновая задача, качающая run_callbacks() + ретранслирующая входящие
+    /// Input/Disconnect сообщения в Tauri-события, пока сессия активна.
+    pub pump_task: Option<JoinHandle<()>>,
+    pub peer: Option<steamworks::SteamId>,
+}
+
+impl SteamNetplayState {
+    pub fn clear_session(&mut self) {
+        if let Some(task) = self.pump_task.take() {
+            task.abort();
+        }
+        self.peer = None;
     }
 }

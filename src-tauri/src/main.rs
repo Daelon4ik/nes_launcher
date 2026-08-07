@@ -16,6 +16,7 @@ fn main() {
             let conn = db::init(&app_dir.join("nes_launhder.db"))?;
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(netplay::NetplayState::default()));
+            app.manage(Mutex::new(netplay::SteamNetplayState::default()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -47,6 +48,11 @@ fn main() {
             commands::netplay::netplay_join_host,
             commands::netplay::netplay_send_input,
             commands::netplay::netplay_disconnect,
+            commands::steam_netplay::steam_local_id,
+            commands::steam_netplay::steam_start_hosting,
+            commands::steam_netplay::steam_join,
+            commands::steam_netplay::steam_send_input,
+            commands::steam_netplay::steam_disconnect,
             commands::store::store_search,
             commands::store::store_browse,
             commands::store::store_list_files,

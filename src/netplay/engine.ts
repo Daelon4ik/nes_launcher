@@ -7,7 +7,7 @@ import { NES } from "jsnes";
 import Screen from "jsnes/src/browser/screen.js";
 import Speakers from "jsnes/src/browser/speakers.js";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { onPeerDisconnected, onRemoteInput, sendInput } from "../api/netplay";
+import { onPeerDisconnected, onRemoteInput } from "../api/netplay";
 import { applyButtons, LocalInputReader } from "./localInput";
 
 // ~100мс на 60кадр/с — с запасом перекрывает LAN RTT (обычно <5мс) и Tauri IPC
@@ -19,6 +19,10 @@ export interface NetplayEngineOptions {
   romData: Uint8Array;
   localPlayer: 1 | 2;
   volume?: number;
+  // Отправка кадра ввода партнёру — единственное, что реально зависит от
+  // транспорта (LAN/Steam, см. docs/netplay.md); движок сам транспорт не
+  // знает, вызывающий код (EmulatorScreen) передаёт нужную функцию.
+  sendInput: (frame: number, buttons: number) => void;
   onError?: (error: unknown) => void;
   onPeerDisconnected?: () => void;
 }
@@ -30,6 +34,7 @@ export class NetplayEngine {
   private input: LocalInputReader;
   private readonly localPlayer: 1 | 2;
   private readonly remotePlayer: 1 | 2;
+  private readonly sendInputFn: (frame: number, buttons: number) => void;
   private readonly onErrorCb?: (error: unknown) => void;
   private readonly onPeerDisconnectedCb?: () => void;
 
@@ -44,6 +49,7 @@ export class NetplayEngine {
   constructor(options: NetplayEngineOptions) {
     this.localPlayer = options.localPlayer;
     this.remotePlayer = options.localPlayer === 1 ? 2 : 1;
+    this.sendInputFn = options.sendInput;
     this.onErrorCb = options.onError;
     this.onPeerDisconnectedCb = options.onPeerDisconnected;
 
@@ -106,7 +112,7 @@ export class NetplayEngine {
       const sendFrame = this.frameNo + INPUT_DELAY_FRAMES;
       const localBits = this.input.read();
       this.localHistory.set(sendFrame, localBits);
-      sendInput(sendFrame, localBits);
+      this.sendInputFn(sendFrame, localBits);
 
       const remoteBits = this.remoteHistory.get(this.frameNo);
       if (remoteBits === undefined) {

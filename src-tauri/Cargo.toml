@@ -19,3 +19,4 @@ scraper = "0.19"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tokio = { version = "1", features = ["net", "sync", "time", "macros", "rt-multi-thread"] }
 socket2 = { version = "0.5", features = ["all"] }
+steamworks = "0.13"

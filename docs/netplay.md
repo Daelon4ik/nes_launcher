@@ -1,14 +1,22 @@
 # P2P-кооп (netplay)
 
-Два инстанса лаунчера в одной LAN играют одну NES-игру вместе — один хостит,
-другой подключается. Этот документ описывает протокол и архитектуру; UI —
-см. [screens.md](screens.md) (`Netplay Lobby Screen`, `Emulator Screen`,
-вкладка «Сеть» в `Settings Screen`).
+Два инстанса лаунчера играют одну NES-игру вместе — один хостит, другой
+подключается. Два независимых, взаимозаменяемых способа установить
+соединение (**транспорта**) поверх одного и того же протокола и лок-степ
+движка:
+- **LAN** — UDP broadcast-обнаружение + сырой TCP, только в одной локальной
+  сети (см. «Обнаружение хостов» и «Протокол сессии» ниже).
+- **Steam** — P2P через `ISteamNetworkingMessages` (AppID 480, Spacewar),
+  без обнаружения — Steam ID партнёра вводится вручную; работает через
+  интернет (NAT traversal через Steam Relay) — см. «Второй транспорт: Steam»
+  ниже.
+
+Этот документ описывает протокол и архитектуру; UI — см. [screens.md](screens.md)
+(`Netplay Lobby Screen`, `Emulator Screen`, вкладка «Сеть» в `Settings Screen`).
 
 ## Явные ограничения MVP
 
 - Ровно два игрока: хост = NES-контроллер 1, клиент = NES-контроллер 2.
-- Только LAN (UDP broadcast-обнаружение) — игры через интернет нет.
 - Нет паузы во время кооп-сессии (синхронизировать паузу по сети — отдельная
   задача), нет save/load state (уже отключены как заглушки и в одиночной игре).
 - Нет реконнекта после разрыва — обрыв завершает сессию, обе стороны видят
@@ -16,6 +24,11 @@
 - Оба игрока должны независимо владеть ROM-файлом с одинаковой SHA-256
   чек-суммой (сверяется при рукопожатии) — сам ROM по сети не передаётся.
 - Задержка ввода фиксирована (см. ниже) и не настраивается пользователем.
+- Steam-транспорт: без матчмейкинга/лобби (Steam ID вводится вручную), оба
+  игрока должны иметь запущенный Steam-клиент, партнёр в его Steam-клиенте
+  увидит запись «Spacewar» (официальный тестовый AppID Steamworks — не
+  предназначен для полноценной раздачи пользователям, используется здесь как
+  бесплатный доступ к P2P-сети без регистрации собственного AppID).
 
 ## Почему нельзя переиспользовать jsnes `Browser`
 
@@ -68,10 +81,12 @@
 
 ## Почему сеть держит Rust, а не webview
 
-Веб-вью не может открывать сырые сокеты. Rust-бэкенд владеет TCP-сессией;
-JS вызывает fire-and-forget команду на каждый кадр, чтобы отправить локальный
-ввод (`netplay_send_input`), а полученный от партнёра ввод Rust реэмитит в JS
-Tauri-событием (`netplay://remote-input`).
+Веб-вью не может открывать сырые сокеты, как и не может слинковать нативный
+Steamworks SDK. Rust-бэкенд владеет и TCP-сессией (LAN), и Steam-клиентом
+(см. ниже); JS вызывает fire-and-forget команду на каждый кадр, чтобы
+отправить локальный ввод (`netplay_send_input`/`steam_send_input`), а
+полученный от партнёра ввод Rust реэмитит в JS одним и тем же Tauri-событием
+(`netplay://remote-input`) независимо от транспорта.
 
 ## Обнаружение хостов (LAN UDP broadcast)
 
@@ -88,10 +103,90 @@ Tauri-событием (`netplay://remote-input`).
 одной машине (иначе второй `bind()` на тот же порт падал бы с "Address already
 in use").
 
-## Протокол сессии (TCP, newline-delimited JSON)
+## Второй транспорт: P2P через Steam
+
+`src-tauri/src/netplay/steam.rs` + `src-tauri/src/commands/steam_netplay.rs`.
+Тот же протокол (`NetplayMessage`, см. ниже) и те же Tauri-события
+(`netplay://client-connected`/`remote-input`/`peer-disconnected`), что у
+LAN — фронтенд (`src/netplay/engine.ts`) транспорт не различает: единственное,
+что реально зависит от транспорта — функция отправки кадра, передаётся в
+`NetplayEngine` через опции конструктора (`sendInput`), а не хардкодится
+внутри движка (см. `src/screens/EmulatorScreen/index.tsx`).
+
+- **AppID 480 (Spacewar)** — официальный тестовый AppID Steamworks SDK,
+  используется тем же способом, что и в собственном примере крейта
+  `steamworks` (`examples/networking-messages`) — не требует регистрации
+  своего AppID. `Client::init_app(480)` сам выставляет переменные окружения
+  `SteamAppId`/`SteamGameId` — отдельный файл `steam_appid.txt` не нужен.
+  Клиент инициализируется лениво, при первом заходе в «Кооп → Через Steam»,
+  не при старте приложения.
+- **`ISteamNetworkingMessages`** — message-oriented API (в отличие от
+  connection-oriented `ISteamNetworkingSockets`): `send_message_to_user`/
+  `receive_messages_on_channel` — прямой аналог TCP send/receive, но без
+  ручного NAT traversal (обрабатывает Steam Relay). Все сообщения —
+  `SendFlags::RELIABLE`: лок-степ не переживёт потерю кадра ввода (см. выше
+  про гарантию отсутствия рассинхрона), в отличие от примера крейта
+  (использующего `UNRELIABLE_NO_DELAY` для курсора мыши) доставка обязана
+  быть гарантированной.
+- **Без матчмейкинга/лобби**: хост показывает свой Steam ID (`steam_local_id`)
+  для копирования, партнёр вводит его вручную в поле на своём экране
+  подключения — ровно то, что просил пользователь при заказе фичи.
+  `session_request_callback` принимает любую входящую сессию (как TCP
+  `accept()`) — реальная проверка доверия происходит по чек-сумме ROM в
+  `Handshake`, как и у LAN.
+- **Фоновая pump-задача** (`tauri::async_runtime::spawn`, ~120 опросов/сек):
+  качает `run_callbacks()` + вычитывает входящие сообщения, эмитит события —
+  прямой аналог `run_reader` из `session.rs`, только вместо TCP-сокета —
+  `receive_messages_on_channel`. `session_failed_callback` — сетевой аналог
+  обрыва TCP-сокета, эмитит `netplay://peer-disconnected` независимо от
+  явного `Disconnect`-сообщения.
+
+### Настройка сборки/разработки
+
+`steamworks-sys` вендорит `libsteam_api.so`, но копирует его только в
+`OUT_DIR` при сборке — рядом с итоговым бинарником его нет, и без
+дополнительного шага бинарник не запустится (`STATUS_DLL_NOT_FOUND`-подобная
+ошибка при попытке инициализировать Steam). Нужно (аналогично уже
+существующей заметке про `GDK_BACKEND=x11` на Hyprland — см. README.md):
+
+```bash
+find ~/.cargo/registry -name libsteam_api.so   # найти вендоренный файл
+cp <найденный путь для вашей платформы> src-tauri/target/debug/
+# либо на каждый запуск:
+LD_LIBRARY_PATH=src-tauri/target/debug npm run tauri dev
+```
+
+Для `tauri build`-бандла (чтобы конечным пользователям не нужно было ничего
+копировать руками) — отдельный follow-up, пока не сделан.
+
+### Известное ограничение тестирования: self-connection
+
+Подключение к **своему же** Steam ID (два инстанса лаунчера под одним
+аккаунтом — единственный доступный сценарий для проверки на машине с одним
+Steam-логином) упирается в особенность самого Steamworks SDK: соединение с
+identity, совпадающим с локальным, роутится через специальный внутренний
+«pipe»-механизм вместо обычного P2P/relay — и в проверенной версии SDK это
+падает с `Assertion Failed: [...] Unlinking connection in state 1`
+(`csteamnetworkingmessages.cpp`), после чего `send_message_to_user`
+стабильно возвращает `ConnectFailed`. Это ограничение конкретно
+self-to-self сценария на уровне SDK, не баг в реализации — обычное
+подключение между **двумя разными** Steam-аккаунтами эту особую ветку кода
+вообще не задействует. Проверено вживую: `Client::init_app(480)` и
+`client.user().steam_id()` реально успешно отрабатывают против запущенного
+Steam-клиента (см. `netplay::steam::tests::connects_to_running_steam_client`,
+`#[ignore]`-тест), хостинг и получение своего Steam ID в UI работают,
+рукопожатие корректно репортит ошибку в лобби вместо зависания/краша —
+именно шаг реального P2P-обмена сообщениями между двумя разными людьми не
+проверен в этой среде.
+
+## Протокол сессии (общий для обоих транспортов, на проводе — JSON)
 
 Трафик крошечный (одно `Input`-сообщение на кадр, ~60 раз/сек на игрока) —
 JSON проще самодельного бинарного протокола и накладные расходы тут не важны.
+У LAN на проводе это newline-delimited JSON поверх TCP (см. ниже); у Steam —
+то же самое сериализованное сообщение как есть, отдельным «пакетом»
+`ISteamNetworkingMessages` (там сообщения по своей природе не потоковые, а
+дискретные — framing по `\n` не нужен).
 
 ```rust
 #[serde(tag = "type")]
@@ -115,14 +210,25 @@ reader эмитит `netplay://remote-input` на `Input` и `netplay://peer-dis
 
 ## Tauri-команды и события
 
-Команды (`src-tauri/src/commands/netplay.rs`): `netplay_start_hosting`,
+Команды LAN (`src-tauri/src/commands/netplay.rs`): `netplay_start_hosting`,
 `netplay_stop_hosting`, `netplay_start_discovery`, `netplay_stop_discovery`,
 `netplay_join_host`, `netplay_send_input`, `netplay_disconnect`.
 
-События (JS слушает через `src/api/netplay.ts`): `netplay://host-found`,
-`netplay://host-lost`, `netplay://client-connected`, `netplay://hosting-failed`,
-`netplay://remote-input`, `netplay://peer-disconnected`.
+Команды Steam (`src-tauri/src/commands/steam_netplay.rs`): `steam_local_id`,
+`steam_start_hosting`, `steam_join`, `steam_send_input`, `steam_disconnect`.
+Нет аналога `netplay_start_discovery`/`stop_discovery`/`hosting_stop` —
+Steam-транспорт без обнаружения, а «отменить хостинг до подключения партнёра»
+и «выйти из уже установленной сессии» — один и тот же `steam_disconnect`
+(безопасно вызывать и когда партнёра ещё нет: просто нечего уведомлять).
 
-Фоновые задачи (broadcast/discovery/accept/reader/writer) запускаются через
-`tauri::async_runtime::spawn` (не голый `tokio::spawn`) — так они выполняются
-на рантайме, которым управляет сам Tauri.
+События (JS слушает через `src/api/netplay.ts`), общие для обоих
+транспортов: `netplay://client-connected`, `netplay://remote-input`,
+`netplay://peer-disconnected`. LAN-специфичные: `netplay://host-found`,
+`netplay://host-lost`, `netplay://hosting-failed` (у Steam ошибки хостинга
+возвращаются напрямую из промиса команды, отдельного события не нужно —
+`steam_start_hosting` синхронно не блокируется на приёме, но сама
+инициализация Steam-клиента либо сразу успешна, либо сразу с ошибкой).
+
+Фоновые задачи (LAN: broadcast/discovery/accept/reader/writer; Steam: pump)
+запускаются через `tauri::async_runtime::spawn` (не голый `tokio::spawn`) —
+так они выполняются на рантайме, которым управляет сам Tauri.

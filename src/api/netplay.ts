@@ -44,6 +44,33 @@ export function disconnect(): Promise<void> {
   return invoke("netplay_disconnect");
 }
 
+// Второй транспорт кооп-сессии — P2P через Steam (см. docs/netplay.md), без
+// LAN-обнаружения: партнёр подключается по Steam ID, которым обменялись
+// вручную. netplay://client-connected/remote-input/peer-disconnected —
+// те же самые события, что и у LAN (см. функции выше), переиспользуются как
+// есть — их слушатели не нужно дублировать под этот транспорт.
+
+export function steamLocalId(): Promise<string> {
+  return invoke("steam_local_id");
+}
+
+export function steamStartHosting(displayName: string, romChecksum: string): Promise<void> {
+  return invoke("steam_start_hosting", { displayName, romChecksum });
+}
+
+export function steamJoin(peerSteamId: string, displayName: string, romChecksum: string): Promise<PeerInfo> {
+  return invoke("steam_join", { peerSteamId, displayName, romChecksum });
+}
+
+// Как sendInput выше — fire-and-forget, вызывается из игрового цикла.
+export function steamSendInput(frame: number, buttons: number): void {
+  invoke("steam_send_input", { frame, buttons }).catch(() => {});
+}
+
+export function steamDisconnect(): Promise<void> {
+  return invoke("steam_disconnect");
+}
+
 export function onClientConnected(cb: (peer: PeerInfo) => void): Promise<UnlistenFn> {
   return listen<PeerInfo>("netplay://client-connected", (e) => cb(e.payload));
 }
