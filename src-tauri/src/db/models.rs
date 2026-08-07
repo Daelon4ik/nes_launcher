@@ -15,6 +15,8 @@ pub struct Game {
     /// "single" | "alternating" | "coop" — см. `metadata::scraper::parse_player_mode`.
     pub player_mode: String,
     pub favorite: bool,
+    /// "nes" | "genesis" — по расширению файла (`.nes`/`.gen`), см. docs/platforms.md.
+    pub platform: String,
 }
 
 /// См. docs/data-model.md#SaveState. camelCase — соответствует src/api/saves.ts на фронтенде.

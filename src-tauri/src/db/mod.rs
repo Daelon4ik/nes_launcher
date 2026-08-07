@@ -15,7 +15,8 @@ const SCHEMA: &str = "
         total_playtime_seconds INTEGER NOT NULL DEFAULT 0,
         added_at TEXT NOT NULL,
         player_mode TEXT NOT NULL DEFAULT 'single',
-        favorite INTEGER NOT NULL DEFAULT 0
+        favorite INTEGER NOT NULL DEFAULT 0,
+        platform TEXT NOT NULL DEFAULT 'nes'
     );
 
     CREATE TABLE IF NOT EXISTS play_session (
@@ -49,7 +50,18 @@ pub fn init(db_path: &Path) -> rusqlite::Result<Connection> {
     // для баз, созданных до появления player_mode, нужен отдельный ALTER TABLE.
     add_column_if_missing(&conn, "game", "player_mode", "TEXT NOT NULL DEFAULT 'single'")?;
     add_column_if_missing(&conn, "game", "favorite", "INTEGER NOT NULL DEFAULT 0")?;
+    add_column_if_missing(&conn, "game", "platform", "TEXT NOT NULL DEFAULT 'nes'")?;
     Ok(conn)
+}
+
+/// Платформа по расширению файла ROM — `.gen` это Sega Genesis, всё остальное (включая
+/// `.nes`) считается NES. См. docs/platforms.md#идентификация-платформы.
+fn platform_for_rom_path(rom_path: &str) -> &'static str {
+    let is_genesis = Path::new(rom_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("gen"));
+    if is_genesis { "genesis" } else { "nes" }
 }
 
 fn add_column_if_missing(conn: &Connection, table: &str, column: &str, ddl: &str) -> rusqlite::Result<()> {
@@ -76,10 +88,11 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
         added_at: row.get(7)?,
         player_mode: row.get(8)?,
         favorite: row.get::<_, i64>(9)? != 0,
+        platform: row.get(10)?,
     })
 }
 
-const GAME_COLUMNS: &str = "id, title, rom_path, description, cover_path, last_played_at, total_playtime_seconds, added_at, player_mode, favorite";
+const GAME_COLUMNS: &str = "id, title, rom_path, description, cover_path, last_played_at, total_playtime_seconds, added_at, player_mode, favorite, platform";
 
 pub fn list_games(conn: &Connection) -> rusqlite::Result<Vec<Game>> {
     let mut stmt = conn.prepare(&format!(
@@ -97,8 +110,8 @@ pub fn insert_game_if_missing(
     added_at: &str,
 ) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO game (title, rom_path, added_at, total_playtime_seconds) VALUES (?1, ?2, ?3, 0)",
-        params![title, rom_path, added_at],
+        "INSERT OR IGNORE INTO game (title, rom_path, added_at, total_playtime_seconds, platform) VALUES (?1, ?2, ?3, 0, ?4)",
+        params![title, rom_path, added_at, platform_for_rom_path(rom_path)],
     )?;
     Ok(())
 }
@@ -131,8 +144,8 @@ pub fn game_id_by_rom_path(conn: &Connection, rom_path: &str) -> rusqlite::Resul
 /// какой физический файл за ней стоит.
 pub fn update_game_rom(conn: &Connection, game_id: i64, title: &str, rom_path: &str) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE game SET title = ?1, rom_path = ?2 WHERE id = ?3",
-        params![title, rom_path, game_id],
+        "UPDATE game SET title = ?1, rom_path = ?2, platform = ?3 WHERE id = ?4",
+        params![title, rom_path, platform_for_rom_path(rom_path), game_id],
     )?;
     Ok(())
 }
@@ -292,6 +305,55 @@ mod tests {
         assert_eq!(games[0].total_playtime_seconds, 0);
         assert!(games[0].last_played_at.is_none());
         assert_eq!(games[0].player_mode, "single");
+        assert_eq!(games[0].platform, "nes");
+    }
+
+    #[test]
+    fn insert_game_if_missing_detects_genesis_platform_by_extension() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Sonic", "/roms/sonic.gen", "2026-01-01T00:00:00Z").unwrap();
+        insert_game_if_missing(&conn, "Sonic (upper ext)", "/roms/sonic2.GEN", "2026-01-01T00:00:00Z").unwrap();
+
+        let games = list_games(&conn).unwrap();
+        assert!(games.iter().all(|g| g.platform == "genesis"));
+    }
+
+    #[test]
+    fn update_game_rom_updates_platform_from_new_rom_path() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+        assert_eq!(get_game(&conn, id).unwrap().unwrap().platform, "nes");
+
+        update_game_rom(&conn, id, "Contra", "/roms/contra.gen").unwrap();
+        assert_eq!(get_game(&conn, id).unwrap().unwrap().platform, "genesis");
+    }
+
+    #[test]
+    fn init_adds_platform_column_to_pre_existing_db_file() {
+        let path = std::env::temp_dir().join(format!("nes-launcher-test-platform-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+
+        {
+            // Симулируем базу, созданную до появления platform. insert_game_if_missing
+            // не годится здесь — она уже пишет в колонку platform, которой в этой схеме
+            // ещё нет, поэтому вставляем запись напрямую тем же способом, что и старый код.
+            let old_schema = SCHEMA.replace(",\n        platform TEXT NOT NULL DEFAULT 'nes'", "");
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(&old_schema).unwrap();
+            conn.execute(
+                "INSERT INTO game (title, rom_path, added_at, total_playtime_seconds) VALUES (?1, ?2, ?3, 0)",
+                params!["Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z"],
+            )
+            .unwrap();
+        }
+
+        let conn = init(&path).unwrap();
+        let games = list_games(&conn).unwrap();
+        assert_eq!(games[0].platform, "nes");
+
+        drop(conn);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

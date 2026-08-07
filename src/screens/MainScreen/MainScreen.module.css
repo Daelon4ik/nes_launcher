@@ -174,6 +174,49 @@ button.navTab:hover:not(:disabled) {
   gap: var(--space-2);
 }
 
+/* Переключатель платформы (NES/Genesis) — тот же паттерн, что у переключателя платформы
+   Store Screen (два взаимоисключающих режима, не выпадающий список), см. platforms.md. */
+.platformToggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.platformButton {
+  min-width: 32px;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-hover), border-color var(--duration-hover), background var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.platformButton:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.platformButton:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.platformButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.platformButtonActive {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .filterSelect {
   height: 36px;
   padding: 0 var(--space-2) 0 var(--space-3);

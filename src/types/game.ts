@@ -10,4 +10,5 @@ export interface Game {
   addedAt: string;
   playerMode: "single" | "alternating" | "coop";
   favorite: boolean;
+  platform: "nes" | "genesis";
 }

@@ -15,7 +15,7 @@
 | total_playtime_seconds | INTEGER | Суммарное время в игре |
 | added_at | DATETIME | Дата добавления в библиотеку |
 | player_mode | TEXT | `"single"` \| `"alternating"` \| `"coop"`. По умолчанию `"single"`, уточняется полем «Игроки» со страницы игры на emu-land.net (тем же скрапером, что тянет description/cover_path) |
-| platform | TEXT | **Планируется** (см. [platforms.md](platforms.md)) — `"nes"` \| `"genesis"`, по расширению файла (`.nes`/`.gen`) в момент добавления в библиотеку. По умолчанию `"nes"` для уже существующих записей (миграция по образцу `player_mode`, `add_column_if_missing`) |
+| platform | TEXT | `"nes"` \| `"genesis"`, по расширению файла (`.nes`/`.gen`) в момент добавления в библиотеку (`platform_for_rom_path` в `src-tauri/src/db/mod.rs`, см. [platforms.md](platforms.md)). По умолчанию `"nes"` для уже существующих записей (миграция по образцу `player_mode`, `add_column_if_missing`) |
 
 ## PlaySession
 

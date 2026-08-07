@@ -62,14 +62,19 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
   const [infoModalGame, setInfoModalGame] = useState<Game | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [filterMode, setFilterMode] = useState<"all" | "single" | "alternating" | "coop">("all");
+  const [platformFilter, setPlatformFilter] = useState<Game["platform"]>("nes");
   const screenRef = useRef<HTMLDivElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
 
   useSpatialNavigation(screenRef);
 
   const filteredGames = useMemo(
-    () => games.filter((game) => filterMode === "all" || game.playerMode === filterMode),
-    [games, filterMode],
+    () =>
+      games.filter(
+        (game) =>
+          (filterMode === "all" || game.playerMode === filterMode) && game.platform === platformFilter,
+      ),
+    [games, filterMode, platformFilter],
   );
 
   const favoriteGames = useMemo(
@@ -203,6 +208,35 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
           </div>
 
           <div className={styles.headerControls}>
+            <div className={styles.platformToggle}>
+              <button
+                type="button"
+                data-nav
+                className={
+                  platformFilter === "nes"
+                    ? `${styles.platformButton} ${styles.platformButtonActive}`
+                    : styles.platformButton
+                }
+                onClick={() => setPlatformFilter("nes")}
+                disabled={loading || modalOpen}
+              >
+                NES
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={
+                  platformFilter === "genesis"
+                    ? `${styles.platformButton} ${styles.platformButtonActive}`
+                    : styles.platformButton
+                }
+                onClick={() => setPlatformFilter("genesis")}
+                disabled={loading || modalOpen}
+              >
+                Genesis
+              </button>
+            </div>
+
             <select
               className={styles.filterSelect}
               value={filterMode}
