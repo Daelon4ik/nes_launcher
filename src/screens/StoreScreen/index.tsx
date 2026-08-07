@@ -9,7 +9,7 @@ import { getRomLibraryPaths } from "../../api/settings";
 import { storeBrowse, storeCoverImage, storeInstall, storeListFiles, storeSearch } from "../../api/store";
 import { coverImageSrc } from "../../utils/coverImage";
 import type { Game } from "../../types/game";
-import { BROWSE_LETTERS, type StoreFile, type StoreGameSummary } from "../../types/store";
+import { BROWSE_LETTERS, type StoreFile, type StoreGameSummary, type StorePlatform } from "../../types/store";
 import logo from "../../assets/logo.png";
 import styles from "./StoreScreen.module.css";
 
@@ -27,6 +27,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   useSpatialNavigation(screenRef);
 
   const [libraryPaths, setLibraryPaths] = useState<string[]>([]);
+  const [platform, setPlatform] = useState<StorePlatform>("nes");
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [letter, setLetter] = useState<string>("a");
@@ -79,7 +80,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     setListLoading(true);
     setListError(null);
 
-    const request = isSearching ? storeSearch(query.trim()) : storeBrowse(letter, page);
+    const request = isSearching ? storeSearch(query.trim(), platform) : storeBrowse(letter, page, platform);
 
     request
       .then((result) => {
@@ -103,12 +104,19 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [isSearching, query, letter, page]);
+  }, [isSearching, query, letter, page, platform]);
 
   // Смена буквы сбрасывает страницу — иначе можно застрять на, скажем, странице 5,
   // если у новой буквы столько страниц нет.
   function handleLetterChange(next: string) {
     setLetter(next);
+    setPage(1);
+  }
+
+  // Смена платформы — как смена буквы: другой раздел сайта, число страниц другое,
+  // на второй-третьей странице NES можно легко провалиться "в никуда" у Genesis.
+  function handlePlatformChange(next: StorePlatform) {
+    setPlatform(next);
     setPage(1);
   }
 
@@ -122,9 +130,14 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
 
   // Совпадение по названию — единственный доступный способ узнать, что игра из
   // магазина уже стоит: у установленных игр нет сохранённого slug emu-land.net,
-  // только title (см. docs/data-model.md).
+  // только title (см. docs/data-model.md). Плюс совпадение платформы (по расширению
+  // файла) — иначе NES- и Genesis-игра с одинаковым названием (редкое, но возможное
+  // совпадение) ошибочно предложили бы "сменить версию" друг на друга.
   function findInstalled(game: StoreGameSummary): Game | undefined {
-    return installedGames.find((g) => g.title.toLowerCase() === game.title.toLowerCase());
+    const expectedExt = platform === "genesis" ? ".gen" : ".nes";
+    return installedGames.find(
+      (g) => g.title.toLowerCase() === game.title.toLowerCase() && g.romPath.toLowerCase().endsWith(expectedExt),
+    );
   }
 
   function openGame(game: StoreGameSummary) {
@@ -143,7 +156,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     setFilesError(null);
     setInstallError(null);
     setFilesLoading(true);
-    storeListFiles(game.slug)
+    storeListFiles(game.slug, platform)
       .then(setFiles)
       .catch((err) => setFilesError(String(err)))
       .finally(() => setFilesLoading(false));
@@ -178,7 +191,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     setPendingInstall(null);
     setInstallingFid(file.fid);
     setInstallError(null);
-    storeInstall(selectedGame.slug, file.fid, selectedGame.title, targetDir, replaceGameId)
+    storeInstall(selectedGame.slug, file.fid, selectedGame.title, platform, targetDir, replaceGameId)
       .then((updatedGames) => {
         setInstalledGames(updatedGames);
         setInstalledMessage(
@@ -258,6 +271,27 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
             </button>
           </div>
         </header>
+
+        <nav className={styles.platforms}>
+          <button
+            type="button"
+            data-nav
+            className={platform === "nes" ? `${styles.letter} ${styles.letterActive}` : styles.letter}
+            onClick={() => handlePlatformChange("nes")}
+            disabled={anyModalOpen}
+          >
+            NES
+          </button>
+          <button
+            type="button"
+            data-nav
+            className={platform === "genesis" ? `${styles.letter} ${styles.letterActive}` : styles.letter}
+            onClick={() => handlePlatformChange("genesis")}
+            disabled={anyModalOpen}
+          >
+            Genesis
+          </button>
+        </nav>
 
         {!isSearching && (
           <nav className={styles.letters}>

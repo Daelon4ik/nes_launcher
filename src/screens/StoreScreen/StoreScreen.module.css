@@ -165,6 +165,15 @@ button.navTab:hover:not(:disabled) {
   flex-shrink: 0;
 }
 
+/* Переключатель платформы (NES/Genesis) — та же раскладка, что у .letters (кнопки —
+   те же .letter/.letterActive), но без wrap: пунктов всего два. */
+.platforms {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-8) 0;
+  flex-shrink: 0;
+}
+
 .letter {
   min-width: 32px;
   height: 28px;

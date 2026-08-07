@@ -1,5 +1,9 @@
 // Соответствует src-tauri/src/store/scraper.rs и docs/store.md
 
+// Соответствует src-tauri/src/store/scraper.rs::StorePlatform — какой раздел
+// emu-land.net используется для поиска/просмотра/установки (см. docs/platforms.md).
+export type StorePlatform = "nes" | "genesis";
+
 export interface StoreGameSummary {
   slug: string;
   title: string;

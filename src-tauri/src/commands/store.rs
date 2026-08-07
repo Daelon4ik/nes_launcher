@@ -3,7 +3,7 @@ use crate::commands::metadata::download_cover;
 use crate::db;
 use crate::db::models::Game;
 use crate::metadata::scraper::{download_image, fetch_metadata_by_url};
-use crate::store::scraper::{self, StoreFile, StoreGameSummary, StoreListingPage};
+use crate::store::scraper::{self, StoreFile, StoreGameSummary, StoreListingPage, StorePlatform};
 use rusqlite::Connection;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -11,18 +11,18 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
-pub async fn store_search(query: String) -> Result<Vec<StoreGameSummary>, String> {
-    scraper::search(&query).await
+pub async fn store_search(query: String, platform: StorePlatform) -> Result<Vec<StoreGameSummary>, String> {
+    scraper::search(&query, platform).await
 }
 
 #[tauri::command]
-pub async fn store_browse(letter: String, page: u32) -> Result<StoreListingPage, String> {
-    scraper::browse_letter(&letter, page).await
+pub async fn store_browse(letter: String, page: u32, platform: StorePlatform) -> Result<StoreListingPage, String> {
+    scraper::browse_letter(&letter, page, platform).await
 }
 
 #[tauri::command]
-pub async fn store_list_files(slug: String) -> Result<Vec<StoreFile>, String> {
-    scraper::list_files(&slug).await
+pub async fn store_list_files(slug: String, platform: StorePlatform) -> Result<Vec<StoreFile>, String> {
+    scraper::list_files(&slug, platform).await
 }
 
 /// Скачивает и кэширует превью-картинку карточки магазина (`ss.emu-land.net` блокирует
@@ -49,8 +49,9 @@ pub async fn store_cover_image(app: AppHandle, slug: String, url: String) -> Res
     Ok(dest.to_string_lossy().to_string())
 }
 
-/// Скачивает выбранный файл, распаковывает единственный .nes из архива, регистрирует
-/// его в библиотеке (тем же способом, что install_games для вручную выбранных
+/// Скачивает выбранный файл, распаковывает единственный ROM нужного расширения
+/// (`.nes`/`.gen` — см. `platform`) из архива, регистрирует его в библиотеке (тем
+/// же способом, что install_games для вручную выбранных
 /// файлов — см. commands::library) и сразу подтягивает описание/обложку/режим игры
 /// с той же страницы emu-land.net (best-effort — см. try_fetch_metadata).
 ///
@@ -73,22 +74,23 @@ pub async fn store_install(
     slug: String,
     fid: String,
     title: String,
+    platform: StorePlatform,
     target_dir: Option<String>,
     replace_game_id: Option<i64>,
 ) -> Result<Vec<Game>, String> {
-    let id = scraper::resolve_game_id(&slug).await?;
-    let zip_bytes = scraper::download_zip(&id, &fid).await?;
-    let rom_bytes = extract_nes_from_zip(&zip_bytes)?;
+    let id = scraper::resolve_game_id(&slug, platform).await?;
+    let zip_bytes = scraper::download_zip(&id, &fid, platform).await?;
+    let rom_bytes = extract_rom_from_zip(&zip_bytes, platform.rom_extension())?;
 
     let game_id = match replace_game_id {
-        Some(old_game_id) => replace_installed_game(&db, old_game_id, &title, &rom_bytes)?,
+        Some(old_game_id) => replace_installed_game(&db, old_game_id, &title, &rom_bytes, platform)?,
         None => {
             let dir = {
                 let conn = db.lock().map_err(|e| e.to_string())?;
                 resolve_install_dir(&conn, &app, target_dir)?
             };
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            let filename = format!("{}.nes", sanitize_filename(&title));
+            let filename = format!("{}.{}", sanitize_filename(&title), platform.rom_extension());
             let dest = unique_path(&dir, &filename);
             std::fs::write(&dest, &rom_bytes).map_err(|e| e.to_string())?;
             let rom_path = dest.to_string_lossy().to_string();
@@ -108,7 +110,7 @@ pub async fn store_install(
         // сети или разметки сайта не должен откатывать уже выполненную установку игры,
         // просто останется без описания/обложки — как и у вручную добавленных файлов,
         // metadata можно дозагрузить кнопкой «Обновить» на вкладке «Метаданные».
-        if let Err(err) = try_fetch_metadata(&db, &app, game_id, &slug).await {
+        if let Err(err) = try_fetch_metadata(&db, &app, game_id, &slug, platform).await {
             eprintln!("Не удалось автоматически загрузить метаданные для «{title}»: {err}");
         }
     }
@@ -127,6 +129,7 @@ fn replace_installed_game(
     game_id: i64,
     title: &str,
     rom_bytes: &[u8],
+    platform: StorePlatform,
 ) -> Result<i64, String> {
     let old_rom_path = {
         let conn = db.lock().map_err(|e| e.to_string())?;
@@ -144,7 +147,11 @@ fn replace_installed_game(
         std::fs::remove_file(&old_path).map_err(|e| e.to_string())?;
     }
 
-    let filename = format!("{}.nes", sanitize_filename(title));
+    // Замена версии может сменить и платформу (например, старый .nes-файл заменяется
+    // Genesis-версией той же по названию игры) — редкий случай (совпадение названий
+    // между разными платформами), но unique_path всё равно не даст перезаписать что-то
+    // чужое, если canonical-имя вдруг совпадёт с другим файлом в той же папке.
+    let filename = format!("{}.{}", sanitize_filename(title), platform.rom_extension());
     let dest = unique_path(&dir, &filename);
     std::fs::write(&dest, rom_bytes).map_err(|e| e.to_string())?;
     let rom_path = dest.to_string_lossy().to_string();
@@ -159,8 +166,9 @@ async fn try_fetch_metadata(
     app: &AppHandle,
     game_id: i64,
     slug: &str,
+    platform: StorePlatform,
 ) -> Result<(), String> {
-    let scraped = fetch_metadata_by_url(&scraper::game_page_url(slug)).await?;
+    let scraped = fetch_metadata_by_url(&scraper::game_page_url(slug, platform)).await?;
 
     let cover_path = match &scraped.cover_url {
         Some(url) => Some(download_cover(app, game_id, url).await?),
@@ -228,19 +236,21 @@ fn resolve_install_dir(
     }
 }
 
-/// Единственный .nes из скачанного .zip. Имя файла на диске определяется отдельно
-/// из названия игры (см. store_install) — имя внутри архива не используется, так
-/// что содержимому zip-записи не нужно доверять даже как basename.
-fn extract_nes_from_zip(bytes: &[u8]) -> Result<Vec<u8>, String> {
+/// Единственный ROM нужного расширения (".nes" для NES, ".gen" для Genesis — см.
+/// StorePlatform::rom_extension) из скачанного .zip. Имя файла на диске определяется
+/// отдельно из названия игры (см. store_install) — имя внутри архива не используется,
+/// так что содержимому zip-записи не нужно доверять даже как basename.
+fn extract_rom_from_zip(bytes: &[u8], extension: &str) -> Result<Vec<u8>, String> {
     let reader = std::io::Cursor::new(bytes);
     let mut archive = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
+    let suffix = format!(".{extension}");
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         if entry.is_dir() {
             continue;
         }
-        if !entry.name().to_lowercase().ends_with(".nes") {
+        if !entry.name().to_lowercase().ends_with(&suffix) {
             continue;
         }
 
@@ -249,7 +259,7 @@ fn extract_nes_from_zip(bytes: &[u8]) -> Result<Vec<u8>, String> {
         return Ok(data);
     }
 
-    Err("В скачанном архиве не найден .nes файл".to_string())
+    Err(format!("В скачанном архиве не найден {suffix} файл"))
 }
 
 /// Избегает перезаписи при повторной установке/совпадении имён — "Contra.nes",

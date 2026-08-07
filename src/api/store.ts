@@ -1,17 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../types/game";
-import type { StoreFile, StoreGameSummary, StoreListingPage } from "../types/store";
+import type { StoreFile, StoreGameSummary, StoreListingPage, StorePlatform } from "../types/store";
 
-export function storeSearch(query: string): Promise<StoreGameSummary[]> {
-  return invoke("store_search", { query });
+export function storeSearch(query: string, platform: StorePlatform): Promise<StoreGameSummary[]> {
+  return invoke("store_search", { query, platform });
 }
 
-export function storeBrowse(letter: string, page: number): Promise<StoreListingPage> {
-  return invoke("store_browse", { letter, page });
+export function storeBrowse(letter: string, page: number, platform: StorePlatform): Promise<StoreListingPage> {
+  return invoke("store_browse", { letter, page, platform });
 }
 
-export function storeListFiles(slug: string): Promise<StoreFile[]> {
-  return invoke("store_list_files", { slug });
+export function storeListFiles(slug: string, platform: StorePlatform): Promise<StoreFile[]> {
+  return invoke("store_list_files", { slug, platform });
 }
 
 // Скачивает/кэширует превью-картинку карточки на бэкенде (хотлинк на ss.emu-land.net
@@ -29,8 +29,9 @@ export function storeInstall(
   slug: string,
   fid: string,
   title: string,
+  platform: StorePlatform,
   targetDir: string | null,
   replaceGameId: number | null,
 ): Promise<Game[]> {
-  return invoke("store_install", { slug, fid, title, targetDir, replaceGameId });
+  return invoke("store_install", { slug, fid, title, platform, targetDir, replaceGameId });
 }
