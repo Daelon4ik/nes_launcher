@@ -2,6 +2,8 @@
 
 Реализовано. Позволяет искать и устанавливать ROM'ы прямо из лаунчера, без ручного скачивания файлов. Источник — тот же раздел NES/Dendy на [emu-land.net](https://www.emu-land.net/consoles/dendy/roms), что уже используется для метаданных (`src-tauri/src/metadata/scraper.rs`, `NES_SECTION_ID`) — переиспользует оттуда `BASE_URL`/`NES_SECTION_ID`/`build_client` (сделаны `pub(crate)`).
 
+**Планируется** (см. [platforms.md](platforms.md#store-screen-фильтр-и-источник-для-genesis)): второй, параллельный раздел на emu-land.net для Sega Genesis (`GENESIS_SECTION_ID`/свой `ROMS_PATH`, по аналогии с `NES_SECTION_ID`/`/consoles/dendy/roms` — точный id раздела и путь не проверены вживую), переключаемый в UI кнопками «NES»/«Genesis»; установка берёт из архива первый файл с расширением `.gen` вместо `.nes` для игр этого раздела. Всё ниже в этом документе описывает текущее, NES-only поведение.
+
 UI-поведение описано здесь на уровне поведения; экран как таковой — см. `Store Screen` в [screens.md](screens.md). Реализация: `src-tauri/src/store/scraper.rs` (HTTP/парсинг), `src-tauri/src/commands/store.rs` (Tauri-команды: `store_search`, `store_browse`, `store_list_files`, `store_install`), `src/screens/StoreScreen/`.
 
 ## Как находим игру на сайте

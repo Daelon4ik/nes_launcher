@@ -15,6 +15,7 @@
 | total_playtime_seconds | INTEGER | Суммарное время в игре |
 | added_at | DATETIME | Дата добавления в библиотеку |
 | player_mode | TEXT | `"single"` \| `"alternating"` \| `"coop"`. По умолчанию `"single"`, уточняется полем «Игроки» со страницы игры на emu-land.net (тем же скрапером, что тянет description/cover_path) |
+| platform | TEXT | **Планируется** (см. [platforms.md](platforms.md)) — `"nes"` \| `"genesis"`, по расширению файла (`.nes`/`.gen`) в момент добавления в библиотеку. По умолчанию `"nes"` для уже существующих записей (миграция по образцу `player_mode`, `add_column_if_missing`) |
 
 ## PlaySession
 
@@ -34,7 +35,7 @@
 | id | INTEGER PK | |
 | game_id | INTEGER FK → Game | |
 | slot | INTEGER | Номер слота сохранения (1..3, см. `Emulator Screen` в [screens.md](screens.md)) |
-| file_path | TEXT | Путь к JSON-файлу `nes.toJSON()` — `<app-data>/saves/<game_id>/slot_<slot>.json` |
+| file_path | TEXT | Путь к JSON-файлу `nes.toJSON()` — `<app-data>/saves/<game_id>/slot_<slot>.json`. **Планируется** (см. [platforms.md](platforms.md#save-state)): с появлением второго движка (Genesis) формат содержимого станет непрозрачным для лаунчера — конкретный движок выбирается по `Game.platform`, само поле/путь не меняются |
 | created_at | DATETIME | |
 
 Уникальный индекс по `(game_id, slot)` — сохранение в занятый слот перезаписывает запись (`ON CONFLICT DO UPDATE`), а не плодит дубликаты.
@@ -52,5 +53,7 @@
 | network_host_port | `"7777"` | TCP-порт, на котором лаунчер слушает входящее подключение в режиме хоста. Вкладка «Сеть» |
 
 Раскладка управления (клавиатура/геймпад) в эту таблицу **не** попадает — хранится отдельно, во фронтендовом `localStorage` (`keyboard_controls`, `gamepad_controls`, см. [screens.md](screens.md#2-settings-screen)), не в SQLite. Источник метаданных (`emu-land.net`) не настраиваемый — захардкожен в `metadata/scraper.rs`, тоже не хранится как Setting.
+
+**Планируется** (см. [platforms.md](platforms.md#контроллер)): ключи раскладки управления в `localStorage` получат платформенный неймспейс (`keyboard_controls_nes`/`keyboard_controls_genesis` и т.п.) вместо текущих плоских `keyboard_controls`/`gamepad_controls`.
 
 Версия лаунчера в настройках не хранится в БД — читается из `package.json` / `Cargo.toml` (`tauri::generate_context!().package_info()`) и выводится только для отображения.
