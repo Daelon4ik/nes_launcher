@@ -70,6 +70,16 @@ pub fn delete_game(db: State<'_, Mutex<Connection>>, game_id: i64) -> Result<Vec
     db::list_games(&conn).map_err(|e| e.to_string())
 }
 
+/// Помечает игру избранной/снимает пометку (звезда на Main Screen). Клиент
+/// передаёт итоговое значение явно — без toggle на бэкенде, чтобы не держать
+/// серверное и клиентское состояние в рассинхроне при повторных быстрых кликах.
+#[tauri::command]
+pub fn set_favorite(db: State<'_, Mutex<Connection>>, game_id: i64, favorite: bool) -> Result<Vec<Game>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::set_favorite(&conn, game_id, favorite).map_err(|e| e.to_string())?;
+    db::list_games(&conn).map_err(|e| e.to_string())
+}
+
 /// Папки для сканирования: из `Settings.rom_library_paths`, если заданы,
 /// иначе — дефолтная `<app-data>/roms` (создаётся при отсутствии).
 fn resolve_rom_dirs(conn: &Connection, app: &AppHandle) -> Result<Vec<PathBuf>, String> {

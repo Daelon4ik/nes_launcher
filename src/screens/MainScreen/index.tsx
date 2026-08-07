@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Shelf } from "../../components/Shelf";
-import { Library, Settings, Store } from "lucide-react";
+import { Library, Settings, Star, Store } from "lucide-react";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
@@ -56,7 +56,7 @@ interface MainScreenProps {
 }
 
 export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: MainScreenProps) {
-  const { games, loading, error, install, remove } = useGameLibrary();
+  const { games, loading, error, install, remove, toggleFavorite } = useGameLibrary();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [infoModalGame, setInfoModalGame] = useState<Game | null>(null);
@@ -70,6 +70,11 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
   const filteredGames = useMemo(
     () => games.filter((game) => filterMode === "all" || game.playerMode === filterMode),
     [games, filterMode],
+  );
+
+  const favoriteGames = useMemo(
+    () => filteredGames.filter((game) => game.favorite),
+    [filteredGames],
   );
 
   const recentGames = useMemo(
@@ -261,6 +266,20 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 >
                   Удалить игру
                 </button>
+                <button
+                  type="button"
+                  data-nav
+                  className={
+                    selectedGame.favorite
+                      ? `${styles.favoriteButton} ${styles.favoriteActive}`
+                      : styles.favoriteButton
+                  }
+                  onClick={() => toggleFavorite(selectedGame.id, !selectedGame.favorite)}
+                  disabled={modalOpen}
+                  title={selectedGame.favorite ? "Убрать из избранного" : "Добавить в избранное"}
+                >
+                  <Star size={20} fill={selectedGame.favorite ? "currentColor" : "none"} />
+                </button>
               </div>
             </>
           ) : (
@@ -278,12 +297,22 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
           ) : (
             <>
               <Shelf
+                title="Избранное"
+                games={favoriteGames}
+                selectedId={selectedGame?.id}
+                onSelect={(game) => setSelectedId(game.id)}
+                onPlay={onPlay}
+                disabled={modalOpen}
+                wrap
+              />
+              <Shelf
                 title="Недавно запущенные"
                 games={recentGames}
                 selectedId={selectedGame?.id}
                 onSelect={(game) => setSelectedId(game.id)}
                 onPlay={onPlay}
                 disabled={modalOpen}
+                wrap
               />
               <Shelf
                 title="Все игры"
@@ -292,6 +321,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 onSelect={(game) => setSelectedId(game.id)}
                 onPlay={onPlay}
                 disabled={modalOpen}
+                wrap
               />
             </>
           )}

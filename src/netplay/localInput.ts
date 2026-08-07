@@ -4,12 +4,11 @@
 // и явно применяем к нужному игроку через NES.buttonDown/buttonUp.
 import { Controller, type NES } from "jsnes";
 import { getNetplayKeyMap } from "../utils/keyboardControls";
-import { getNetplayGamepadMap } from "../utils/jsnesGamepad";
+import { getNetplayGamepadMap, type GamepadBindingMaps } from "../utils/jsnesGamepad";
+import { AXIS_THRESHOLD, isAxisPressed } from "../utils/gamepadInput";
 
 let KEY_TO_BUTTON: Record<string, number> = {};
-let GAMEPAD_BUTTON_TO_NES: Map<number, number> = new Map();
-
-const AXIS_THRESHOLD = 0.5;
+let GAMEPAD_MAP: GamepadBindingMaps = { buttons: new Map(), axes: [] };
 
 /// Читает текущее состояние NES-кнопок (клавиатура + первый геймпад) в виде
 /// битовой маски: bit N установлен = кнопка Controller.BUTTON_* с id=N зажата.
@@ -19,7 +18,7 @@ export class LocalInputReader {
 
   constructor() {
     KEY_TO_BUTTON = getNetplayKeyMap();
-    GAMEPAD_BUTTON_TO_NES = getNetplayGamepadMap();
+    GAMEPAD_MAP = getNetplayGamepadMap();
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
   }
@@ -42,9 +41,16 @@ export class LocalInputReader {
     const pads = navigator.getGamepads?.() || [];
     const pad = pads[0] || pads[1];
     if (pad) {
-      for (const [index, button] of GAMEPAD_BUTTON_TO_NES) {
+      for (const [index, button] of GAMEPAD_MAP.buttons) {
         if (pad.buttons[index]?.pressed) bits |= 1 << button;
       }
+      for (const axisBinding of GAMEPAD_MAP.axes) {
+        if (isAxisPressed(pad.axes[axisBinding.axisId] ?? 0, axisBinding.direction)) {
+          bits |= 1 << axisBinding.nesButton;
+        }
+      }
+      // Левый стик по умолчанию дублирует D-pad независимо от пользовательской
+      // раскладки — это отдельное поведение "из коробки", а не часть ремаппинга.
       const [x = 0, y = 0] = pad.axes;
       if (y < -AXIS_THRESHOLD) bits |= 1 << Controller.BUTTON_UP;
       else if (y > AXIS_THRESHOLD) bits |= 1 << Controller.BUTTON_DOWN;

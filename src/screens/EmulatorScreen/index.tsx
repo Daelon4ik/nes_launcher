@@ -16,6 +16,7 @@ import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
 import { getGenesisCodeBasedKeyMap, type GenesisActionName } from "../../utils/genesisControls";
 import { getGenesisGamepadButtonMaps } from "../../utils/genesisGamepad";
+import { isAxisPressed } from "../../utils/gamepadInput";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getVolume } from "../../api/settings";
 import { GenesisCore, genesisStateFromBase64, genesisStateToBase64, type GenesisButtons } from "../../emulator/genesis/GenesisCore";
@@ -426,6 +427,10 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     if (status !== "playing" || netplay || isGenesis) return; // Genesis — отдельный опрос ниже, кооп читает ввод сам (LocalInputReader)
     const maps = getGamepadButtonMaps();
     const prevPressed: boolean[][] = [[], []];
+    // Индексируется по позиции биндинга в maps[i].axes (не по axisId — на один
+    // и тот же физический axisId может быть назначено 2 разных действия, напр.
+    // LEFT/RIGHT на axisId 0 с разным направлением).
+    const prevAxisPressed: boolean[][] = [[], []];
     let rafId: number;
 
     function poll() {
@@ -435,15 +440,24 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         const pad = pads[i];
         if (!pad || !nes) {
           prevPressed[i] = [];
+          prevAxisPressed[i] = [];
           continue;
         }
-        for (const [buttonIndex, nesButton] of maps[i]) {
+        for (const [buttonIndex, nesButton] of maps[i].buttons) {
           const pressed = pad.buttons[buttonIndex]?.pressed ?? false;
           const wasPressed = prevPressed[i][buttonIndex] ?? false;
           if (pressed && !wasPressed) nes.buttonDown((i + 1) as 1 | 2, nesButton);
           else if (!pressed && wasPressed) nes.buttonUp((i + 1) as 1 | 2, nesButton);
         }
         prevPressed[i] = pad.buttons.map((b) => b.pressed);
+
+        maps[i].axes.forEach((axisBinding, slot) => {
+          const pressed = isAxisPressed(pad.axes[axisBinding.axisId] ?? 0, axisBinding.direction);
+          const wasPressed = prevAxisPressed[i][slot] ?? false;
+          if (pressed && !wasPressed) nes.buttonDown((i + 1) as 1 | 2, axisBinding.nesButton);
+          else if (!pressed && wasPressed) nes.buttonUp((i + 1) as 1 | 2, axisBinding.nesButton);
+          prevAxisPressed[i][slot] = pressed;
+        });
       }
       rafId = requestAnimationFrame(poll);
     }
@@ -468,8 +482,13 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
           const pad = pads[i];
           if (!pad) continue;
           const buttons: GenesisButtons = {};
-          for (const [buttonIndex, action] of maps[i]) {
+          for (const [buttonIndex, action] of maps[i].buttons) {
             if (pad.buttons[buttonIndex]?.pressed) buttons[GENESIS_ACTION_TO_KEY[action]] = true;
+          }
+          for (const axisBinding of maps[i].axes) {
+            if (isAxisPressed(pad.axes[axisBinding.axisId] ?? 0, axisBinding.direction)) {
+              buttons[GENESIS_ACTION_TO_KEY[axisBinding.action]] = true;
+            }
           }
           core.setInput(i as 0 | 1, buttons);
         }

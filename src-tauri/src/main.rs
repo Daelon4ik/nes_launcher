@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod commands;
 mod db;
 mod metadata;
@@ -24,6 +26,7 @@ fn main() {
             commands::library::list_games,
             commands::library::install_games,
             commands::library::delete_game,
+            commands::library::set_favorite,
             commands::metadata::update_metadata,
             commands::emulator::launch_game,
             commands::emulator::read_rom_bytes,

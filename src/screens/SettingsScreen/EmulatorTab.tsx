@@ -3,7 +3,6 @@ import { getSavedControls, saveControls, ActionName, DEFAULT_CONTROLS } from "..
 import {
   getSavedGamepadControls,
   saveGamepadControls,
-  describeGamepadButton,
   DEFAULT_GAMEPAD_CONTROLS,
 } from "../../utils/jsnesGamepad";
 import {
@@ -17,6 +16,7 @@ import {
   saveGenesisGamepadControls,
   DEFAULT_GENESIS_GAMEPAD_CONTROLS,
 } from "../../utils/genesisGamepad";
+import { describeGamepadSource, findNewlyPressedButton, findNewlyCrossedAxis } from "../../utils/gamepadInput";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
 import styles from "./EmulatorTab.module.css";
 
@@ -142,17 +142,21 @@ export function EmulatorTab() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [listeningForGenesis]);
 
-  // Ждём следующее НОВОЕ нажатие кнопки геймпада (опросом Gamepad API — событий
-  // подключения кнопок в вебе нет), а не первую попавшуюся, чтобы не ловить кнопку,
-  // уже зажатую с предыдущего действия. Слушаем геймпад того слота, который сейчас
-  // переназначается (первый подключённый — Игрок 1, второй — Игрок 2); если для
-  // этого слота геймпад ещё не подключён, используем первый доступный.
+  // Ждём следующее НОВОЕ нажатие кнопки геймпада или отклонение стика/оси за порог
+  // (опросом Gamepad API — событий подключения кнопок/осей в вебе нет), а не первое
+  // попавшееся, чтобы не ловить кнопку/стик, уже зажатые с предыдущего действия.
+  // Слушаем геймпад того слота, который сейчас переназначается (первый подключённый —
+  // Игрок 1, второй — Игрок 2); если для этого слота геймпад ещё не подключён,
+  // используем первый доступный. Стики и аналоговые триггеры (RT/LT), если они
+  // репортятся геймпадом как оси, а не кнопки, назначаются так же — как axis-биндинг
+  // с направлением, срабатывающий по порогу AXIS_THRESHOLD (см. utils/gamepadInput.ts).
   useEffect(() => {
     if (!listeningForGamepad) return;
     const { player, action } = listeningForGamepad;
 
     const padIndex = player === "player1" ? 0 : 1;
     let wasPressed: boolean[] | null = null;
+    let wasAxes: number[] | null = null;
     let rafId: number;
 
     function poll() {
@@ -163,18 +167,30 @@ export function EmulatorTab() {
         return;
       }
 
-      if (!wasPressed) {
+      if (!wasPressed || !wasAxes) {
         // Первый кадр после входа в режим ожидания — просто снимок текущего
-        // состояния, чтобы не среагировать на уже зажатую кнопку.
+        // состояния, чтобы не среагировать на уже зажатую кнопку/отклонённый стик.
         wasPressed = pad.buttons.map((b) => b.pressed);
+        wasAxes = Array.from(pad.axes);
         rafId = requestAnimationFrame(poll);
         return;
       }
 
-      const pressedIndex = pad.buttons.findIndex((b, i) => b.pressed && !wasPressed![i]);
+      const pressedIndex = findNewlyPressedButton(pad, wasPressed);
       if (pressedIndex !== -1) {
         setGamepadControls((prev) => {
-          const next = { ...prev, [player]: { ...prev[player], [action]: { buttonId: pressedIndex } } };
+          const next = { ...prev, [player]: { ...prev[player], [action]: { type: "button" as const, buttonId: pressedIndex } } };
+          saveGamepadControls(next);
+          return next;
+        });
+        setListeningForGamepad(null);
+        return;
+      }
+
+      const axisHit = findNewlyCrossedAxis(pad, wasAxes);
+      if (axisHit) {
+        setGamepadControls((prev) => {
+          const next = { ...prev, [player]: { ...prev[player], [action]: { type: "axis" as const, ...axisHit } } };
           saveGamepadControls(next);
           return next;
         });
@@ -183,6 +199,7 @@ export function EmulatorTab() {
       }
 
       wasPressed = pad.buttons.map((b) => b.pressed);
+      wasAxes = Array.from(pad.axes);
       rafId = requestAnimationFrame(poll);
     }
     rafId = requestAnimationFrame(poll);
@@ -197,6 +214,7 @@ export function EmulatorTab() {
 
     const padIndex = player === "player1" ? 0 : 1;
     let wasPressed: boolean[] | null = null;
+    let wasAxes: number[] | null = null;
     let rafId: number;
 
     function poll() {
@@ -207,16 +225,28 @@ export function EmulatorTab() {
         return;
       }
 
-      if (!wasPressed) {
+      if (!wasPressed || !wasAxes) {
         wasPressed = pad.buttons.map((b) => b.pressed);
+        wasAxes = Array.from(pad.axes);
         rafId = requestAnimationFrame(poll);
         return;
       }
 
-      const pressedIndex = pad.buttons.findIndex((b, i) => b.pressed && !wasPressed![i]);
+      const pressedIndex = findNewlyPressedButton(pad, wasPressed);
       if (pressedIndex !== -1) {
         setGenesisGamepadControls((prev) => {
-          const next = { ...prev, [player]: { ...prev[player], [action]: { buttonId: pressedIndex } } };
+          const next = { ...prev, [player]: { ...prev[player], [action]: { type: "button" as const, buttonId: pressedIndex } } };
+          saveGenesisGamepadControls(next);
+          return next;
+        });
+        setListeningForGenesisGamepad(null);
+        return;
+      }
+
+      const axisHit = findNewlyCrossedAxis(pad, wasAxes);
+      if (axisHit) {
+        setGenesisGamepadControls((prev) => {
+          const next = { ...prev, [player]: { ...prev[player], [action]: { type: "axis" as const, ...axisHit } } };
           saveGenesisGamepadControls(next);
           return next;
         });
@@ -225,11 +255,32 @@ export function EmulatorTab() {
       }
 
       wasPressed = pad.buttons.map((b) => b.pressed);
+      wasAxes = Array.from(pad.axes);
       rafId = requestAnimationFrame(poll);
     }
     rafId = requestAnimationFrame(poll);
     return () => cancelAnimationFrame(rafId);
   }, [listeningForGenesisGamepad]);
+
+  // useSpatialNavigation (см. hooks/useSpatialNavigation.ts) на всём Settings Screen
+  // трактует физическую кнопку 0 геймпада ("A"/Cross) как глобальный "confirm" — по
+  // нажатию кликает текущий сфокусированный элемент, включая саму кнопку строки
+  // "Кнопка A" в режиме ремаппинга. Без guard'а каждое повторное нажатие A во время
+  // ожидания повторно вызывает setListeningFor*Gamepad с новым объектом-ссылкой,
+  // эффект пересоздаётся и снова захватывает "уже нажато" на этом же кадре — из-за
+  // этого физическую кнопку A в принципе невозможно было бы назначить ни на одно
+  // действие. Игнорируем повторный клик по той же строке, пока она уже слушает ввод.
+  function startListeningGamepad(target: { player: "player1" | "player2"; action: ActionName }) {
+    setListeningForGamepad((prev) =>
+      prev?.player === target.player && prev.action === target.action ? prev : target,
+    );
+  }
+
+  function startListeningGenesisGamepad(target: { player: "player1" | "player2"; action: GenesisActionName }) {
+    setListeningForGenesisGamepad((prev) =>
+      prev?.player === target.player && prev.action === target.action ? prev : target,
+    );
+  }
 
   const actions: { id: ActionName; label: string }[] = [
     { id: "UP", label: "Вверх" },
@@ -388,11 +439,11 @@ export function EmulatorTab() {
                         ? styles.listening
                         : ""
                     }`}
-                    onClick={() => setListeningForGamepad({ player: "player1", action: a.id })}
+                    onClick={() => startListeningGamepad({ player: "player1", action: a.id })}
                   >
                     {listeningForGamepad?.player === "player1" && listeningForGamepad.action === a.id
-                      ? "Нажмите кнопку..."
-                      : describeGamepadButton(gamepadControls.player1[a.id].buttonId)}
+                      ? "Нажмите кнопку или подвиньте стик..."
+                      : describeGamepadSource(gamepadControls.player1[a.id])}
                   </button>
                 </div>
               ))}
@@ -412,11 +463,11 @@ export function EmulatorTab() {
                         ? styles.listening
                         : ""
                     }`}
-                    onClick={() => setListeningForGamepad({ player: "player2", action: a.id })}
+                    onClick={() => startListeningGamepad({ player: "player2", action: a.id })}
                   >
                     {listeningForGamepad?.player === "player2" && listeningForGamepad.action === a.id
-                      ? "Нажмите кнопку..."
-                      : describeGamepadButton(gamepadControls.player2[a.id].buttonId)}
+                      ? "Нажмите кнопку или подвиньте стик..."
+                      : describeGamepadSource(gamepadControls.player2[a.id])}
                   </button>
                 </div>
               ))}
@@ -485,11 +536,11 @@ export function EmulatorTab() {
                       ? styles.listening
                       : ""
                   }`}
-                  onClick={() => setListeningForGenesisGamepad({ player: "player1", action: a.id })}
+                  onClick={() => startListeningGenesisGamepad({ player: "player1", action: a.id })}
                 >
                   {listeningForGenesisGamepad?.player === "player1" && listeningForGenesisGamepad.action === a.id
-                    ? "Нажмите кнопку..."
-                    : describeGamepadButton(genesisGamepadControls.player1[a.id].buttonId)}
+                    ? "Нажмите кнопку или подвиньте стик..."
+                    : describeGamepadSource(genesisGamepadControls.player1[a.id])}
                 </button>
               </div>
             ))}
@@ -509,11 +560,11 @@ export function EmulatorTab() {
                       ? styles.listening
                       : ""
                   }`}
-                  onClick={() => setListeningForGenesisGamepad({ player: "player2", action: a.id })}
+                  onClick={() => startListeningGenesisGamepad({ player: "player2", action: a.id })}
                 >
                   {listeningForGenesisGamepad?.player === "player2" && listeningForGenesisGamepad.action === a.id
-                    ? "Нажмите кнопку..."
-                    : describeGamepadButton(genesisGamepadControls.player2[a.id].buttonId)}
+                    ? "Нажмите кнопку или подвиньте стик..."
+                    : describeGamepadSource(genesisGamepadControls.player2[a.id])}
                 </button>
               </div>
             ))}

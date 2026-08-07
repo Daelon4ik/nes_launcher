@@ -1,22 +1,21 @@
 import type { GenesisActionName } from "./genesisControls";
+import { type GamepadSource, normalizeGamepadSource } from "./gamepadInput";
 
-export interface GenesisGamepadBinding {
-  buttonId: number; // физический индекс кнопки в стандартной раскладке Gamepad API
-}
+export type GenesisGamepadBinding = GamepadSource;
 
 export type GenesisPlayerGamepadControls = Record<GenesisActionName, GenesisGamepadBinding>;
 
 // Тот же дефолт, что был зашит константой в EmulatorScreen до переноса сюда:
 // D-pad → стрелки, кнопки 0/1/2 → B/A/C, кнопка 9 → Start.
 const STANDARD_LAYOUT: GenesisPlayerGamepadControls = {
-  UP: { buttonId: 12 },
-  DOWN: { buttonId: 13 },
-  LEFT: { buttonId: 14 },
-  RIGHT: { buttonId: 15 },
-  B: { buttonId: 0 },
-  A: { buttonId: 1 },
-  C: { buttonId: 2 },
-  START: { buttonId: 9 },
+  UP: { type: "button", buttonId: 12 },
+  DOWN: { type: "button", buttonId: 13 },
+  LEFT: { type: "button", buttonId: 14 },
+  RIGHT: { type: "button", buttonId: 15 },
+  B: { type: "button", buttonId: 0 },
+  A: { type: "button", buttonId: 1 },
+  C: { type: "button", buttonId: 2 },
+  START: { type: "button", buttonId: 9 },
 };
 
 export const DEFAULT_GENESIS_GAMEPAD_CONTROLS: { player1: GenesisPlayerGamepadControls; player2: GenesisPlayerGamepadControls } = {
@@ -26,11 +25,20 @@ export const DEFAULT_GENESIS_GAMEPAD_CONTROLS: { player1: GenesisPlayerGamepadCo
 
 const STORAGE_KEY = "gamepad_controls_genesis";
 
+function normalizeControls(controls: GenesisPlayerGamepadControls | undefined): GenesisPlayerGamepadControls {
+  const result = {} as GenesisPlayerGamepadControls;
+  for (const action of Object.keys(STANDARD_LAYOUT) as GenesisActionName[]) {
+    result[action] = normalizeGamepadSource(controls?.[action], STANDARD_LAYOUT[action]);
+  }
+  return result;
+}
+
 export function getSavedGenesisGamepadControls() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved) as typeof DEFAULT_GENESIS_GAMEPAD_CONTROLS;
+      const parsed = JSON.parse(saved) as { player1: GenesisPlayerGamepadControls; player2: GenesisPlayerGamepadControls };
+      return { player1: normalizeControls(parsed.player1), player2: normalizeControls(parsed.player2) };
     } catch (e) {
       console.error(e);
     }
@@ -42,18 +50,34 @@ export function saveGenesisGamepadControls(controls: typeof DEFAULT_GENESIS_GAME
   localStorage.setItem(STORAGE_KEY, JSON.stringify(controls));
 }
 
-// Физический индекс кнопки геймпада -> Genesis-экшен.
-function toButtonMap(controls: GenesisPlayerGamepadControls): Map<number, GenesisActionName> {
-  const map = new Map<number, GenesisActionName>();
+export interface GenesisAxisBinding {
+  axisId: number;
+  direction: 1 | -1;
+  action: GenesisActionName;
+}
+
+export interface GenesisGamepadBindingMaps {
+  // Физический индекс кнопки геймпада -> Genesis-экшен.
+  buttons: Map<number, GenesisActionName>;
+  axes: GenesisAxisBinding[];
+}
+
+function toBindingMaps(controls: GenesisPlayerGamepadControls): GenesisGamepadBindingMaps {
+  const buttons = new Map<number, GenesisActionName>();
+  const axes: GenesisAxisBinding[] = [];
   for (const [action, binding] of Object.entries(controls)) {
-    map.set(binding.buttonId, action as GenesisActionName);
+    if (binding.type === "axis") {
+      axes.push({ axisId: binding.axisId, direction: binding.direction, action: action as GenesisActionName });
+    } else {
+      buttons.set(binding.buttonId, action as GenesisActionName);
+    }
   }
-  return map;
+  return { buttons, axes };
 }
 
 // Аналог getGamepadButtonMaps в jsnesGamepad.ts — EmulatorScreen опрашивает
 // геймпады сам и назначает игроков по порядку подключения.
-export function getGenesisGamepadButtonMaps(): [Map<number, GenesisActionName>, Map<number, GenesisActionName>] {
+export function getGenesisGamepadButtonMaps(): [GenesisGamepadBindingMaps, GenesisGamepadBindingMaps] {
   const controls = getSavedGenesisGamepadControls();
-  return [toButtonMap(controls.player1), toButtonMap(controls.player2)];
+  return [toBindingMaps(controls.player1), toBindingMaps(controls.player2)];
 }

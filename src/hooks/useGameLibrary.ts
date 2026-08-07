@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { deleteGame, installGames, listGames, scanLibrary } from "../api/library";
+import { deleteGame, installGames, listGames, scanLibrary, setFavorite } from "../api/library";
 import type { Game } from "../types/game";
 
 interface UseGameLibraryResult {
@@ -9,6 +9,7 @@ interface UseGameLibraryResult {
   scan: () => Promise<void>;
   install: (paths: string[]) => Promise<void>;
   remove: (gameId: number) => Promise<void>;
+  toggleFavorite: (gameId: number, favorite: boolean) => Promise<void>;
 }
 
 export function useGameLibrary(): UseGameLibraryResult {
@@ -59,5 +60,17 @@ export function useGameLibrary(): UseGameLibraryResult {
     }
   }, []);
 
-  return { games, loading, error, scan, install, remove };
+  const toggleFavorite = useCallback(async (gameId: number, favorite: boolean) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setGames(await setFavorite(gameId, favorite));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { games, loading, error, scan, install, remove, toggleFavorite };
 }

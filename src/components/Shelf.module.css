@@ -29,6 +29,12 @@
   display: none;
 }
 
+.rowWrap {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  overflow-x: visible;
+}
+
 .tile {
   --space-2: 8px;
   --font-size-card-title: 14px;

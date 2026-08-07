@@ -16,3 +16,7 @@ export function installGames(paths: string[]): Promise<Game[]> {
 export function deleteGame(gameId: number): Promise<Game[]> {
   return invoke("delete_game", { gameId });
 }
+
+export function setFavorite(gameId: number, favorite: boolean): Promise<Game[]> {
+  return invoke("set_favorite", { gameId, favorite });
+}

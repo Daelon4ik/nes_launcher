@@ -9,4 +9,5 @@ export interface Game {
   totalPlaytimeSeconds: number;
   addedAt: string;
   playerMode: "single" | "alternating" | "coop";
+  favorite: boolean;
 }

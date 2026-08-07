@@ -14,7 +14,8 @@ const SCHEMA: &str = "
         last_played_at TEXT,
         total_playtime_seconds INTEGER NOT NULL DEFAULT 0,
         added_at TEXT NOT NULL,
-        player_mode TEXT NOT NULL DEFAULT 'single'
+        player_mode TEXT NOT NULL DEFAULT 'single',
+        favorite INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS play_session (
@@ -47,6 +48,7 @@ pub fn init(db_path: &Path) -> rusqlite::Result<Connection> {
     // `CREATE TABLE IF NOT EXISTS` не добавляет колонки в уже существующую таблицу —
     // для баз, созданных до появления player_mode, нужен отдельный ALTER TABLE.
     add_column_if_missing(&conn, "game", "player_mode", "TEXT NOT NULL DEFAULT 'single'")?;
+    add_column_if_missing(&conn, "game", "favorite", "INTEGER NOT NULL DEFAULT 0")?;
     Ok(conn)
 }
 
@@ -73,10 +75,11 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
         total_playtime_seconds: row.get(6)?,
         added_at: row.get(7)?,
         player_mode: row.get(8)?,
+        favorite: row.get::<_, i64>(9)? != 0,
     })
 }
 
-const GAME_COLUMNS: &str = "id, title, rom_path, description, cover_path, last_played_at, total_playtime_seconds, added_at, player_mode";
+const GAME_COLUMNS: &str = "id, title, rom_path, description, cover_path, last_played_at, total_playtime_seconds, added_at, player_mode, favorite";
 
 pub fn list_games(conn: &Connection) -> rusqlite::Result<Vec<Game>> {
     let mut stmt = conn.prepare(&format!(
@@ -178,6 +181,14 @@ pub fn update_game_metadata(
             params![player_mode, game_id],
         )?;
     }
+    Ok(())
+}
+
+pub fn set_favorite(conn: &Connection, game_id: i64, favorite: bool) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE game SET favorite = ?1 WHERE id = ?2",
+        params![favorite as i64, game_id],
+    )?;
     Ok(())
 }
 
@@ -375,6 +386,20 @@ mod tests {
         assert_eq!(game.description.as_deref(), Some("Классика"));
         assert_eq!(game.cover_path.as_deref(), Some("https://example.com/cover.png"));
         assert_eq!(game.player_mode, "single");
+    }
+
+    #[test]
+    fn set_favorite_toggles_flag() {
+        let conn = memory_db();
+        insert_game_if_missing(&conn, "Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z").unwrap();
+        let id = conn.last_insert_rowid();
+        assert!(!get_game(&conn, id).unwrap().unwrap().favorite);
+
+        set_favorite(&conn, id, true).unwrap();
+        assert!(get_game(&conn, id).unwrap().unwrap().favorite);
+
+        set_favorite(&conn, id, false).unwrap();
+        assert!(!get_game(&conn, id).unwrap().unwrap().favorite);
     }
 
     #[test]

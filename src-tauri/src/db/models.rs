@@ -14,6 +14,7 @@ pub struct Game {
     pub added_at: String,
     /// "single" | "alternating" | "coop" — см. `metadata::scraper::parse_player_mode`.
     pub player_mode: String,
+    pub favorite: bool,
 }
 
 /// См. docs/data-model.md#SaveState. camelCase — соответствует src/api/saves.ts на фронтенде.

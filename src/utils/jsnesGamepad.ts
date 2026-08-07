@@ -1,9 +1,8 @@
 import { Controller } from "jsnes";
 import type { ActionName } from "./keyboardControls";
+import { type GamepadSource, describeGamepadButton, describeGamepadSource, normalizeGamepadSource } from "./gamepadInput";
 
-export interface GamepadBinding {
-  buttonId: number; // физический индекс кнопки в стандартной раскладке Gamepad API
-}
+export type GamepadBinding = GamepadSource;
 
 export type PlayerGamepadControls = Record<ActionName, GamepadBinding>;
 
@@ -11,14 +10,14 @@ export type PlayerGamepadControls = Record<ActionName, GamepadBinding>;
 // Gamepad API (W3C "standard" layout) одинакова для обоих игроков по умолчанию,
 // чтобы обычный Xbox/PS-совместимый геймпад работал сразу, без ручной настройки.
 const STANDARD_LAYOUT: PlayerGamepadControls = {
-  UP: { buttonId: 12 },
-  DOWN: { buttonId: 13 },
-  LEFT: { buttonId: 14 },
-  RIGHT: { buttonId: 15 },
-  A: { buttonId: 0 },
-  B: { buttonId: 1 },
-  SELECT: { buttonId: 8 },
-  START: { buttonId: 9 },
+  UP: { type: "button", buttonId: 12 },
+  DOWN: { type: "button", buttonId: 13 },
+  LEFT: { type: "button", buttonId: 14 },
+  RIGHT: { type: "button", buttonId: 15 },
+  A: { type: "button", buttonId: 0 },
+  B: { type: "button", buttonId: 1 },
+  SELECT: { type: "button", buttonId: 8 },
+  START: { type: "button", buttonId: 9 },
 };
 
 export const DEFAULT_GAMEPAD_CONTROLS: { player1: PlayerGamepadControls; player2: PlayerGamepadControls } = {
@@ -28,11 +27,20 @@ export const DEFAULT_GAMEPAD_CONTROLS: { player1: PlayerGamepadControls; player2
 
 const STORAGE_KEY = "gamepad_controls";
 
+function normalizeControls(controls: PlayerGamepadControls | undefined): PlayerGamepadControls {
+  const result = {} as PlayerGamepadControls;
+  for (const action of Object.keys(STANDARD_LAYOUT) as ActionName[]) {
+    result[action] = normalizeGamepadSource(controls?.[action], STANDARD_LAYOUT[action]);
+  }
+  return result;
+}
+
 export function getSavedGamepadControls() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved) as typeof DEFAULT_GAMEPAD_CONTROLS;
+      const parsed = JSON.parse(saved) as { player1: PlayerGamepadControls; player2: PlayerGamepadControls };
+      return { player1: normalizeControls(parsed.player1), player2: normalizeControls(parsed.player2) };
     } catch (e) {
       console.error(e);
     }
@@ -55,13 +63,30 @@ const ACTION_TO_BUTTON: Record<ActionName, number> = {
   SELECT: Controller.BUTTON_SELECT,
 };
 
-// Физический индекс кнопки геймпада -> NES-кнопка (Controller.BUTTON_*).
-function toButtonMap(controls: PlayerGamepadControls): Map<number, number> {
-  const map = new Map<number, number>();
+export interface AxisBinding {
+  axisId: number;
+  direction: 1 | -1;
+  nesButton: number;
+}
+
+export interface GamepadBindingMaps {
+  // Физический индекс кнопки геймпада -> NES-кнопка (Controller.BUTTON_*).
+  buttons: Map<number, number>;
+  axes: AxisBinding[];
+}
+
+function toBindingMaps(controls: PlayerGamepadControls): GamepadBindingMaps {
+  const buttons = new Map<number, number>();
+  const axes: AxisBinding[] = [];
   for (const [action, binding] of Object.entries(controls)) {
-    map.set(binding.buttonId, ACTION_TO_BUTTON[action as ActionName]);
+    const nesButton = ACTION_TO_BUTTON[action as ActionName];
+    if (binding.type === "axis") {
+      axes.push({ axisId: binding.axisId, direction: binding.direction, nesButton });
+    } else {
+      buttons.set(binding.buttonId, nesButton);
+    }
   }
-  return map;
+  return { buttons, axes };
 }
 
 // Не используем встроенный GamepadController у jsnes — тот привязывает раскладку
@@ -69,35 +94,23 @@ function toButtonMap(controls: PlayerGamepadControls): Map<number, number> {
 // одинаковой моделью контроллера (у обоих один и тот же id). Вместо этого
 // EmulatorScreen опрашивает геймпады сам и назначает игроков по порядку
 // подключения (первый геймпад — Игрок 1, второй — Игрок 2), используя эти карты.
-export function getGamepadButtonMaps(): [Map<number, number>, Map<number, number>] {
+export function getGamepadButtonMaps(): [GamepadBindingMaps, GamepadBindingMaps] {
   const controls = getSavedGamepadControls();
-  return [toButtonMap(controls.player1), toButtonMap(controls.player2)];
+  return [toBindingMaps(controls.player1), toBindingMaps(controls.player2)];
 }
 
 // Для netplay (см. src/netplay/localInput.ts): там всегда только один локальный
 // игрок, поэтому раскладки обоих слотов объединяются в одну плоскую карту — тот
 // же принцип, что у getNetplayKeyMap в keyboardControls.ts.
-export function getNetplayGamepadMap(): Map<number, number> {
+export function getNetplayGamepadMap(): GamepadBindingMaps {
   const controls = getSavedGamepadControls();
-  const map = toButtonMap(controls.player1);
-  for (const [buttonId, nesButton] of toButtonMap(controls.player2)) {
-    map.set(buttonId, nesButton);
+  const p1 = toBindingMaps(controls.player1);
+  const p2 = toBindingMaps(controls.player2);
+  const buttons = new Map(p1.buttons);
+  for (const [buttonId, nesButton] of p2.buttons) {
+    buttons.set(buttonId, nesButton);
   }
-  return map;
+  return { buttons, axes: [...p1.axes, ...p2.axes] };
 }
 
-// Человекочитаемое имя физической кнопки для UI ремаппинга (стандартная
-// раскладка Gamepad API, https://w3c.github.io/gamepad/#remapping) — сами
-// кнопки не несут имени в Gamepad API, поэтому подписываем по стандартным
-// позициям Xbox/PS-совместимого геймпада.
-const STANDARD_BUTTON_NAMES: Record<number, string> = {
-  0: "A", 1: "B", 2: "X", 3: "Y",
-  4: "LB", 5: "RB", 6: "LT", 7: "RT",
-  8: "Select", 9: "Start", 10: "L3", 11: "R3",
-  12: "D-pad ↑", 13: "D-pad ↓", 14: "D-pad ←", 15: "D-pad →",
-  16: "Home",
-};
-
-export function describeGamepadButton(buttonId: number): string {
-  return STANDARD_BUTTON_NAMES[buttonId] ?? `Кнопка ${buttonId}`;
-}
+export { describeGamepadButton, describeGamepadSource };

@@ -392,6 +392,42 @@ button.navTab:hover:not(:disabled) {
   cursor: default;
 }
 
+.favoriteButton {
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
+}
+
+.favoriteButton:hover:not(:disabled) {
+  border-color: #ffc94d;
+  color: #ffc94d;
+}
+
+.favoriteButton:focus-visible {
+  border-color: #ffc94d;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #ffc94d 25%, transparent);
+}
+
+.favoriteButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.favoriteActive {
+  border-color: #ffc94d;
+  color: #ffc94d;
+}
+
 .shelves {
   flex: 1;
   display: flex;

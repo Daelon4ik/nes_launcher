@@ -3,3 +3,5 @@ dist/
 src-tauri/target/
 src-tauri/gen/schemas/
 *.db
+*.exe
+src-tauri/.cargo/
