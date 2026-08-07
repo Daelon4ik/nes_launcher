@@ -52,8 +52,6 @@
 | network_display_name | `"Игрок"` | Имя, видимое партнёру в P2P-коопе. Вкладка «Сеть», см. [netplay.md](netplay.md) |
 | network_host_port | `"7777"` | TCP-порт, на котором лаунчер слушает входящее подключение в режиме хоста. Вкладка «Сеть» |
 
-Раскладка управления (клавиатура/геймпад) в эту таблицу **не** попадает — хранится отдельно, во фронтендовом `localStorage` (`keyboard_controls`, `gamepad_controls`, см. [screens.md](screens.md#2-settings-screen)), не в SQLite. Источник метаданных (`emu-land.net`) не настраиваемый — захардкожен в `metadata/scraper.rs`, тоже не хранится как Setting.
-
-**Планируется** (см. [platforms.md](platforms.md#контроллер)): ключи раскладки управления в `localStorage` получат платформенный неймспейс (`keyboard_controls_nes`/`keyboard_controls_genesis` и т.п.) вместо текущих плоских `keyboard_controls`/`gamepad_controls`.
+Раскладка управления (клавиатура/геймпад) в эту таблицу **не** попадает — хранится отдельно, во фронтендовом `localStorage`, не в SQLite (см. [screens.md](screens.md#2-settings-screen)). NES: `keyboard_controls`, `gamepad_controls` (плоские, без платформенного суффикса — единственная платформа, когда их заводили). Genesis (см. [platforms.md](platforms.md#контроллер-реализовано)): отдельные ключи `keyboard_controls_genesis`, `gamepad_controls_genesis` — NES-ключи ради симметрии переименовывать не стали. Источник метаданных (`emu-land.net`) не настраиваемый — захардкожен в `metadata/scraper.rs`, тоже не хранится как Setting.
 
 Версия лаунчера в настройках не хранится в БД — читается из `package.json` / `Cargo.toml` (`tauri::generate_context!().package_info()`) и выводится только для отображения.

@@ -14,6 +14,8 @@ import {
 import { NetplayEngine } from "../../netplay/engine";
 import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
+import { getGenesisCodeBasedKeyMap, type GenesisActionName } from "../../utils/genesisControls";
+import { getGenesisGamepadButtonMaps } from "../../utils/genesisGamepad";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getVolume } from "../../api/settings";
 import { GenesisCore, genesisStateFromBase64, genesisStateToBase64, type GenesisButtons } from "../../emulator/genesis/GenesisCore";
@@ -43,19 +45,18 @@ function fitScreenPixelPerfect(stage: HTMLDivElement, width: number, height: num
   canvas.style.height = `${height * scale}px`;
 }
 
-// Клавиатура игрока 1 для Genesis (3-кнопочный пад: A/B/C/Start) — фиксированная,
-// без переназначения в Settings (см. docs/platforms.md — вкладка «Эмулятор» с
-// платформенными раскладками ещё не заведена). Геймпад поддержан для обоих
-// игроков через опрос ниже, тоже с фиксированной раскладкой по умолчанию.
-const GENESIS_KEY_MAP: Record<string, keyof GenesisButtons> = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  KeyZ: "a",
-  KeyX: "b",
-  KeyC: "c",
-  Enter: "start",
+// utils/genesisControls.ts и genesisGamepad.ts работают с экшенами в верхнем
+// регистре (GenesisActionName, единый стиль с NES-раскладками), а GenesisCore.setInput
+// ожидает поля GenesisButtons в нижнем — переводим по этой карте.
+const GENESIS_ACTION_TO_KEY: Record<GenesisActionName, keyof GenesisButtons> = {
+  UP: "up",
+  DOWN: "down",
+  LEFT: "left",
+  RIGHT: "right",
+  A: "a",
+  B: "b",
+  C: "c",
+  START: "start",
 };
 
 interface EmulatorScreenProps {
@@ -238,22 +239,28 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
               nextAudioTime = startAt + buffer.duration;
             }
 
-            // Раскладка клавиатуры Игрока 1 — фиксированная (GENESIS_KEY_MAP выше).
-            // GenesisCore.setInput() принимает полное состояние пада за раз (не
-            // buttonDown/Up по отдельности, как jsnes), поэтому храним его сами.
-            const player1Buttons: GenesisButtons = {};
+            // Раскладка клавиатуры обоих игроков — из Settings Screen → «Эмулятор» →
+            // Genesis (localStorage, см. utils/genesisControls.ts). Читаем один раз при
+            // монтировании, как и NES-раскладка ниже (переназначение подхватится со
+            // следующего захода на экран). GenesisCore.setInput() принимает полное
+            // состояние пада за раз (не buttonDown/Up по отдельности, как jsnes), поэтому
+            // держим его сами, по игроку.
+            const genesisCodeMap = getGenesisCodeBasedKeyMap();
+            const playerButtons: [GenesisButtons, GenesisButtons] = [{}, {}];
             const onKeyDown = (e: KeyboardEvent) => {
-              const action = GENESIS_KEY_MAP[e.code];
-              if (!action) return;
-              player1Buttons[action] = true;
-              core.setInput(0, player1Buttons);
+              const mapped = genesisCodeMap[e.code];
+              if (!mapped) return;
+              const [player, action] = mapped;
+              playerButtons[player][GENESIS_ACTION_TO_KEY[action]] = true;
+              core.setInput(player, playerButtons[player]);
               e.preventDefault();
             };
             const onKeyUp = (e: KeyboardEvent) => {
-              const action = GENESIS_KEY_MAP[e.code];
-              if (!action) return;
-              player1Buttons[action] = false;
-              core.setInput(0, player1Buttons);
+              const mapped = genesisCodeMap[e.code];
+              if (!mapped) return;
+              const [player, action] = mapped;
+              playerButtons[player][GENESIS_ACTION_TO_KEY[action]] = false;
+              core.setInput(player, playerButtons[player]);
               e.preventDefault();
             };
             document.addEventListener("keydown", onKeyDown);
@@ -444,12 +451,14 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     return () => cancelAnimationFrame(rafId);
   }, [status, netplay]);
 
-  // Геймпад для Genesis (3-кнопочный пад): фиксированная раскладка по умолчанию —
-  // D-pad → стрелки, кнопки 0/1/2 → B/A/C, кнопка 9 → Start. Полное состояние
-  // (не down/up-события), как и клавиатура игрока 1 в основном эффекте выше —
-  // GenesisCore.setInput() каждый раз принимает весь пад целиком.
+  // Геймпад для Genesis (3-кнопочный пад): раскладка из Settings Screen → «Эмулятор» →
+  // Genesis (localStorage, см. utils/genesisGamepad.ts), по умолчанию D-pad → стрелки,
+  // кнопки 0/1/2 → B/A/C, кнопка 9 → Start. Полное состояние (не down/up-события), как и
+  // клавиатура в основном эффекте выше — GenesisCore.setInput() каждый раз принимает
+  // весь пад целиком.
   useEffect(() => {
     if (status !== "playing" || netplay || !isGenesis) return;
+    const maps = getGenesisGamepadButtonMaps();
     let rafId: number;
     function poll() {
       const core = genesisCoreRef.current;
@@ -458,16 +467,11 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
         for (let i = 0; i < 2; i++) {
           const pad = pads[i];
           if (!pad) continue;
-          core.setInput(i as 0 | 1, {
-            up: pad.buttons[12]?.pressed,
-            down: pad.buttons[13]?.pressed,
-            left: pad.buttons[14]?.pressed,
-            right: pad.buttons[15]?.pressed,
-            b: pad.buttons[0]?.pressed,
-            a: pad.buttons[1]?.pressed,
-            c: pad.buttons[2]?.pressed,
-            start: pad.buttons[9]?.pressed,
-          });
+          const buttons: GenesisButtons = {};
+          for (const [buttonIndex, action] of maps[i]) {
+            if (pad.buttons[buttonIndex]?.pressed) buttons[GENESIS_ACTION_TO_KEY[action]] = true;
+          }
+          core.setInput(i as 0 | 1, buttons);
         }
       }
       rafId = requestAnimationFrame(poll);
