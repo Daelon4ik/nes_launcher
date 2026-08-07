@@ -218,8 +218,14 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
       cancelled = true;
       browserRef.current?.destroy();
       browserRef.current = null;
-      if (netplay) {
-        netplayEngineRef.current?.destroy();
+      // Гейтим на реально созданный движок, а не просто на наличии netplay-сессии:
+      // getVolume() асинхронный, и в dev под React.StrictMode эффект сначала
+      // монтируется и тут же размонтируется "призрачно" — к этому моменту
+      // движок ещё не создан. Без этой проверки disconnectNetplay() стирал бы
+      // только что установленную Rust-сессию до того, как её вообще начали
+      // использовать, и повторный (уже настоящий) монтаж навсегда терял кооп.
+      if (netplayEngineRef.current) {
+        netplayEngineRef.current.destroy();
         netplayEngineRef.current = null;
         disconnectNetplay().catch(() => {});
       }

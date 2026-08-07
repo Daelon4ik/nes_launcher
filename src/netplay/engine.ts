@@ -74,6 +74,16 @@ export class NetplayEngine {
     void this.speakers.start();
     this.screen.fitInParent();
 
+    // Кадры 0..INPUT_DELAY_FRAMES-1 не покрыты обычной отправкой (та начинается
+    // только с sendFrame = frameNo + INPUT_DELAY_FRAMES, т.е. с кадра
+    // INPUT_DELAY_FRAMES) — без этого лок-степ ждал бы ввод для них вечно,
+    // так и не сдвинувшись с frameNo=0. Обе стороны детерминированно
+    // договариваются считать эти самые первые кадры "без нажатий".
+    for (let frame = 0; frame < INPUT_DELAY_FRAMES; frame++) {
+      this.localHistory.set(frame, 0);
+      this.remoteHistory.set(frame, 0);
+    }
+
     void onRemoteInput((frame, buttons) => this.remoteHistory.set(frame, buttons)).then((unlisten) => {
       if (this.destroyed) unlisten();
       else this.unlistenInput = unlisten;
