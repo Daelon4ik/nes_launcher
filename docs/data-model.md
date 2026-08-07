@@ -41,15 +41,16 @@
 
 ## Settings
 
-Хранится как key-value или отдельная таблица с одной строкой (пока не определено окончательно).
+Простая key-value таблица (`src-tauri/src/db/mod.rs`): `settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`. Значение всегда строка — числовые/булевы настройки сериализуются в текст на границе backend-команды (`src-tauri/src/commands/settings.rs`), а не хранятся типизированно в БД.
 
 | Ключ | Пример значения | Описание |
 |---|---|---|
-| rom_library_paths | `["/home/user/roms/nes"]` | Папки, которые сканируются на ROM'ы |
-| metadata_source | `"emu-land.net"` | Источник метаданных/обложек — https://www.emu-land.net/consoles/dendy/roms |
-| controls | `{ "p1": {...} }` | Раскладка управления |
-| theme | `"light" \| "dark" \| "system"` | Тема оформления (вкладка «Лаунчер») |
-| network_display_name | `"Игрок"` | Имя, видимое партнёру в P2P-коопе (вкладка «Сеть», см. [netplay.md](netplay.md)) |
-| network_host_port | `"7777"` | TCP-порт, на котором лаунчер слушает входящее подключение в режиме хоста |
+| rom_library_paths | `["/home/user/roms/nes"]` | Папки, которые сканируются на ROM'ы (JSON-массив строкой). Вкладка «Библиотека» |
+| theme | `"light" \| "dark" \| "system"` | Тема оформления. Вкладка «Лаунчер» |
+| volume | `"1"` | Громкость эмулятора, `0.0`–`1.0` строкой. Вкладка «Эмулятор», по умолчанию `1.0` |
+| network_display_name | `"Игрок"` | Имя, видимое партнёру в P2P-коопе. Вкладка «Сеть», см. [netplay.md](netplay.md) |
+| network_host_port | `"7777"` | TCP-порт, на котором лаунчер слушает входящее подключение в режиме хоста. Вкладка «Сеть» |
+
+Раскладка управления (клавиатура/геймпад) в эту таблицу **не** попадает — хранится отдельно, во фронтендовом `localStorage` (`keyboard_controls`, `gamepad_controls`, см. [screens.md](screens.md#2-settings-screen)), не в SQLite. Источник метаданных (`emu-land.net`) не настраиваемый — захардкожен в `metadata/scraper.rs`, тоже не хранится как Setting.
 
 Версия лаунчера в настройках не хранится в БД — читается из `package.json` / `Cargo.toml` (`tauri::generate_context!().package_info()`) и выводится только для отображения.
