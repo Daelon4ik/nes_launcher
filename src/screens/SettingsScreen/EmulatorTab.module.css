@@ -208,3 +208,37 @@
   color: var(--text-primary);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+.volumeSection {
+  background: var(--color-panel);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.volumeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.volumeHeader h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--color-accent);
+}
+
+.volumeValue {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.volumeSlider {
+  width: 100%;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+}

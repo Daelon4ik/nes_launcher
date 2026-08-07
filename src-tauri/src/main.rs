@@ -32,6 +32,8 @@ fn main() {
             commands::saves::load_state,
             commands::settings::get_theme,
             commands::settings::set_theme,
+            commands::settings::get_volume,
+            commands::settings::set_volume,
             commands::settings::get_rom_library_paths,
             commands::settings::set_rom_library_paths,
             commands::settings::get_network_display_name,

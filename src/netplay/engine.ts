@@ -18,6 +18,7 @@ export interface NetplayEngineOptions {
   container: HTMLElement;
   romData: Uint8Array;
   localPlayer: 1 | 2;
+  volume?: number;
   onError?: (error: unknown) => void;
   onPeerDisconnected?: () => void;
 }
@@ -47,6 +48,13 @@ export class NetplayEngine {
     this.onPeerDisconnectedCb = options.onPeerDisconnected;
 
     this.speakers = new Speakers({ onBufferUnderrun: () => {} });
+    
+    const volume = options.volume ?? 1.0;
+    const originalWriteSample = this.speakers.writeSample.bind(this.speakers);
+    this.speakers.writeSample = (l: number, r: number) => {
+      originalWriteSample(l * volume, r * volume);
+    };
+
     this.screen = new Screen(options.container);
     this.input = new LocalInputReader();
     this.nes = new NES({

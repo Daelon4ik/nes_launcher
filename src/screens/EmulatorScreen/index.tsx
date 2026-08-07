@@ -10,6 +10,7 @@ import { NetplayEngine } from "../../netplay/engine";
 import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
+import { getVolume } from "../../api/settings";
 import type { Game } from "../../types/game";
 import type { NetplaySession } from "../../types/netplay";
 import styles from "./EmulatorScreen.module.css";
@@ -115,38 +116,36 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   useEffect(() => {
     let cancelled = false;
 
-    if (netplay) {
-      // ROM уже прочитан в лобби (там же проверена чек-сумма с партнёром) —
-      // повторно читать не нужно, к тому же движок должен грузить ровно те же
-      // байты, что были захэшированы, без риска рассинхрона из-за гонки.
-      if (!stageRef.current) return;
-      netplayEngineRef.current = new NetplayEngine({
-        container: stageRef.current,
-        romData: netplay.romData,
-        localPlayer: netplay.localPlayer,
-        onError: (err) => {
-          if (cancelled) return;
-          setErrorMessage(String(err));
-          setStatus("error");
-        },
-        onPeerDisconnected: () => {
-          if (cancelled) return;
-          setErrorMessage("Партнёр отключился.");
-          setStatus("error");
-        },
-      });
-      fitScreenPixelPerfect(stageRef.current);
-      setStatus("playing");
+    getVolume().then((volume) => {
+      if (cancelled) return;
 
-      return () => {
-        cancelled = true;
-        netplayEngineRef.current?.destroy();
-        netplayEngineRef.current = null;
-        disconnectNetplay().catch(() => {});
-      };
-    }
+      if (netplay) {
+        // ROM уже прочитан в лобби (там же проверена чек-сумма с партнёром) —
+        // повторно читать не нужно, к тому же движок должен грузить ровно те же
+        // байты, что были захэшированы, без риска рассинхрона из-за гонки.
+        if (!stageRef.current) return;
+        netplayEngineRef.current = new NetplayEngine({
+          container: stageRef.current,
+          romData: netplay.romData,
+          localPlayer: netplay.localPlayer,
+          volume,
+          onError: (err) => {
+            if (cancelled) return;
+            setErrorMessage(String(err));
+            setStatus("error");
+          },
+          onPeerDisconnected: () => {
+            if (cancelled) return;
+            setErrorMessage("Партнёр отключился.");
+            setStatus("error");
+          },
+        });
+        fitScreenPixelPerfect(stageRef.current);
+        setStatus("playing");
+        return;
+      }
 
-    launchGame(game.id)
+      launchGame(game.id)
       .then(readRomBytes)
       .then((romData) => {
         if (cancelled || !stageRef.current) return;
@@ -158,6 +157,15 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
+
+        const nesAny = browserRef.current.nes as any;
+        const originalOnAudioSample = nesAny.opts.onAudioSample;
+        if (originalOnAudioSample) {
+          nesAny.opts.onAudioSample = (l: number, r: number) => {
+            originalOnAudioSample.call(nesAny.opts, l * volume, r * volume);
+          };
+        }
+
         // Из-за того что jsnes использует устаревший e.keyCode, в русской раскладке (IME)
         // он возвращает 229 для всех клавиш, что приводит к ложным срабатываниям ("выстрел" от любой кнопки).
         // Поэтому мы отключаем стандартные обработчики jsnes и слушаем e.code напрямую.
@@ -204,11 +212,17 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
           setStatus("error");
         }
       });
+    });
 
     return () => {
       cancelled = true;
       browserRef.current?.destroy();
       browserRef.current = null;
+      if (netplay) {
+        netplayEngineRef.current?.destroy();
+        netplayEngineRef.current = null;
+        disconnectNetplay().catch(() => {});
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, netplay]);

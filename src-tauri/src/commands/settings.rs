@@ -71,3 +71,20 @@ pub fn set_network_host_port(db: State<'_, Mutex<Connection>>, port: u16) -> Res
     let conn = db.lock().map_err(|e| e.to_string())?;
     db::set_setting(&conn, "network_host_port", &port.to_string()).map_err(|e| e.to_string())
 }
+
+const DEFAULT_VOLUME: f64 = 1.0;
+
+#[tauri::command]
+pub fn get_volume(db: State<'_, Mutex<Connection>>) -> Result<f64, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    match db::get_setting(&conn, "volume").map_err(|e| e.to_string())? {
+        Some(value) => value.parse().map_err(|e: std::num::ParseFloatError| e.to_string()),
+        None => Ok(DEFAULT_VOLUME),
+    }
+}
+
+#[tauri::command]
+pub fn set_volume(db: State<'_, Mutex<Connection>>, volume: f64) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::set_setting(&conn, "volume", &volume.to_string()).map_err(|e| e.to_string())
+}

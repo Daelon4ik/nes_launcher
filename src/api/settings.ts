@@ -9,6 +9,14 @@ export function setTheme(theme: Theme): Promise<void> {
   return invoke("set_theme", { theme });
 }
 
+export function getVolume(): Promise<number> {
+  return invoke("get_volume");
+}
+
+export function setVolume(volume: number): Promise<void> {
+  return invoke("set_volume", { volume });
+}
+
 export function getRomLibraryPaths(): Promise<string[]> {
   return invoke("get_rom_library_paths");
 }

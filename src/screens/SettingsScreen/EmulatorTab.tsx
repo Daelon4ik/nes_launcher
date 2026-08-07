@@ -23,6 +23,8 @@ const getGamepadIcon = (id: ActionName) => {
   }
 };
 
+import { getVolume, setVolume } from "../../api/settings";
+
 export function EmulatorTab() {
   const [controls, setControls] = useState(getSavedControls);
   const [listeningFor, setListeningFor] = useState<{ player: "player1" | "player2"; action: ActionName } | null>(
@@ -34,6 +36,17 @@ export function EmulatorTab() {
     action: ActionName;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<"keyboard" | "gamepad">("keyboard");
+  const [volume, setVolumeState] = useState(1.0);
+
+  useEffect(() => {
+    getVolume().then(setVolumeState);
+  }, []);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVol = parseFloat(e.target.value);
+    setVolumeState(newVol);
+    setVolume(newVol).catch((err) => console.error("Failed to save volume", err));
+  };
 
   useEffect(() => {
     if (!listeningFor) return;
@@ -125,7 +138,26 @@ export function EmulatorTab() {
 
   return (
     <div className={styles.container}>
-      <h2>Настройка управления</h2>
+      <h2>Настройки эмулятора</h2>
+      
+      <div className={styles.volumeSection}>
+        <div className={styles.volumeHeader}>
+          <h3>Громкость</h3>
+          <span className={styles.volumeValue}>{Math.round(volume * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={volume}
+          onChange={handleVolumeChange}
+          className={styles.volumeSlider}
+          data-nav
+        />
+      </div>
+
+      <h3 style={{ marginTop: '24px' }}>Настройка управления</h3>
       
       <div className={styles.tabs}>
         <button 
