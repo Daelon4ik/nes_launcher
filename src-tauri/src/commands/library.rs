@@ -41,7 +41,7 @@ pub fn install_games(db: State<'_, Mutex<Connection>>, paths: Vec<String>) -> Re
     let now = chrono::Utc::now().to_rfc3339();
 
     for raw_path in paths {
-        if !is_nes_rom(Path::new(&raw_path)) {
+        if !is_supported_rom(Path::new(&raw_path)) {
             continue;
         }
         let title = humanize_title(Path::new(&raw_path));
@@ -105,17 +105,18 @@ fn find_rom_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
         let path = entry?.path();
         if path.is_dir() {
             result.extend(find_rom_files(&path)?);
-        } else if is_nes_rom(&path) {
+        } else if is_supported_rom(&path) {
             result.push(path);
         }
     }
     Ok(result)
 }
 
-fn is_nes_rom(path: &Path) -> bool {
+/// NES (`.nes`) и Sega Genesis/Mega Drive (`.gen`) — см. docs/platforms.md.
+fn is_supported_rom(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("nes"))
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("nes") || ext.eq_ignore_ascii_case("gen"))
 }
 
 /// pub(crate): переиспользуется в commands::store, чтобы установленные из

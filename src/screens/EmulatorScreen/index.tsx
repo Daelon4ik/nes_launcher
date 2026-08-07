@@ -16,6 +16,7 @@ import { getGamepadButtonMaps } from "../../utils/jsnesGamepad";
 import { getCodeBasedKeyMap } from "../../utils/keyboardControls";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getVolume } from "../../api/settings";
+import { GenesisCore, genesisStateFromBase64, genesisStateToBase64, type GenesisButtons } from "../../emulator/genesis/GenesisCore";
 import type { Game } from "../../types/game";
 import type { NetplaySession } from "../../types/netplay";
 import styles from "./EmulatorScreen.module.css";
@@ -32,15 +33,30 @@ const NES_HEIGHT = 240;
 // округляет коэффициент до целого — при дробном масштабе (напр. 4.5×)
 // nearest-neighbor скейлинг неравномерно растягивает соседние пиксели, из-за
 // чего анимированные спрайты "плывут" полосами/грязью. Пересчитываем размер
-// canvas под ближайший целый коэффициент, чтобы каждый NES-пиксель занимал
-// одинаковое число экранных пикселей.
-function fitScreenPixelPerfect(stage: HTMLDivElement) {
+// canvas под ближайший целый коэффициент, чтобы каждый пиксель эмулятора занимал
+// одинаковое число экранных пикселей (используется и для NES, и для Genesis).
+function fitScreenPixelPerfect(stage: HTMLDivElement, width: number, height: number) {
   const canvas = stage.querySelector("canvas");
   if (!canvas) return;
-  const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth / NES_WIDTH, stage.clientHeight / NES_HEIGHT)));
-  canvas.style.width = `${NES_WIDTH * scale}px`;
-  canvas.style.height = `${NES_HEIGHT * scale}px`;
+  const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth / width, stage.clientHeight / height)));
+  canvas.style.width = `${width * scale}px`;
+  canvas.style.height = `${height * scale}px`;
 }
+
+// Клавиатура игрока 1 для Genesis (3-кнопочный пад: A/B/C/Start) — фиксированная,
+// без переназначения в Settings (см. docs/platforms.md — вкладка «Эмулятор» с
+// платформенными раскладками ещё не заведена). Геймпад поддержан для обоих
+// игроков через опрос ниже, тоже с фиксированной раскладкой по умолчанию.
+const GENESIS_KEY_MAP: Record<string, keyof GenesisButtons> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  KeyZ: "a",
+  KeyX: "b",
+  KeyC: "c",
+  Enter: "start",
+};
 
 interface EmulatorScreenProps {
   game: Game;
@@ -61,6 +77,17 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   const browserRef = useRef<Browser | null>(null);
   const netplayEngineRef = useRef<NetplayEngine | null>(null);
   const sessionStartedAt = useRef(Date.now());
+  const isGenesis = game.romPath.toLowerCase().endsWith(".gen");
+  const genesisCoreRef = useRef<GenesisCore | null>(null);
+  const genesisRafRef = useRef<number | undefined>(undefined);
+  const genesisAudioCtxRef = useRef<AudioContext | null>(null);
+  const genesisKeyHandlersRef = useRef<{ onKeyDown: (e: KeyboardEvent) => void; onKeyUp: (e: KeyboardEvent) => void } | null>(null);
+  // RAF-цикл Genesis определяется один раз при загрузке ROM (см. основной эффект)
+  // и переживает ре-рендеры — читает актуальную паузу через ref, а не замыкание.
+  const pausedRef = useRef(false);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   // Оверлей всегда смонтирован (скрывается через display:none), чтобы этот хук
   // навешивал D-pad/A-подтверждение на его кнопки один раз при маунте экрана —
@@ -97,9 +124,11 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   }
 
   async function handleSaveToSlot(slot: number) {
-    if (!browserRef.current) return;
+    if (isGenesis ? !genesisCoreRef.current : !browserRef.current) return;
     try {
-      const data = JSON.stringify(browserRef.current.nes.toJSON());
+      const data = isGenesis
+        ? genesisStateToBase64(genesisCoreRef.current!.serializeState())
+        : JSON.stringify(browserRef.current!.nes.toJSON());
       await saveState(game.id, slot, data);
       setSlots(await listSaveSlots(game.id));
     } catch (err) {
@@ -108,10 +137,14 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   }
 
   async function handleLoadFromSlot(slot: number) {
-    if (!browserRef.current) return;
+    if (isGenesis ? !genesisCoreRef.current : !browserRef.current) return;
     try {
       const data = await loadState(game.id, slot);
-      browserRef.current.nes.fromJSON(JSON.parse(data));
+      if (isGenesis) {
+        genesisCoreRef.current!.unserializeState(genesisStateFromBase64(data));
+      } else {
+        browserRef.current!.nes.fromJSON(JSON.parse(data));
+      }
       setOverlayOpen(false);
     } catch (err) {
       setSlotError(String(err));
@@ -123,6 +156,15 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
 
     getVolume().then((volume) => {
       if (cancelled) return;
+
+      if (netplay && isGenesis) {
+        // NetplayEngine завязан на внутренности jsnes (см. docs/netplay.md) — для
+        // Genesis кооп ещё не реализован (см. docs/platforms.md), явная ошибка
+        // вместо попытки скормить Genesis ROM в NES-движок.
+        setErrorMessage("Кооп для Sega Genesis игр пока не поддерживается.");
+        setStatus("error");
+        return;
+      }
 
       if (netplay) {
         // ROM уже прочитан в лобби (там же проверена чек-сумма с партнёром) —
@@ -146,8 +188,105 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setStatus("error");
           },
         });
-        fitScreenPixelPerfect(stageRef.current);
+        fitScreenPixelPerfect(stageRef.current, NES_WIDTH, NES_HEIGHT);
         setStatus("playing");
+        return;
+      }
+
+      if (isGenesis) {
+        launchGame(game.id)
+          .then(readRomBytes)
+          .then(async (romData) => {
+            if (cancelled || !stageRef.current) return;
+            const core = await GenesisCore.create();
+            if (cancelled) {
+              core.destroy();
+              return;
+            }
+            core.loadRom(romData);
+            genesisCoreRef.current = core;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = core.width;
+            canvas.height = core.height;
+            stageRef.current.replaceChildren(canvas);
+            const ctx2d = canvas.getContext("2d");
+            if (!ctx2d) throw new Error("2D canvas context недоступен");
+
+            const audioCtx = new AudioContext();
+            const gain = audioCtx.createGain();
+            gain.gain.value = volume;
+            gain.connect(audioCtx.destination);
+            genesisAudioCtxRef.current = audioCtx;
+            let nextAudioTime = audioCtx.currentTime;
+
+            function playAudio(samples: Int16Array) {
+              const frames = samples.length / 2;
+              if (frames === 0) return;
+              const buffer = audioCtx.createBuffer(2, frames, core.sampleRate);
+              const left = buffer.getChannelData(0);
+              const right = buffer.getChannelData(1);
+              for (let i = 0; i < frames; i++) {
+                left[i] = samples[i * 2] / 32768;
+                right[i] = samples[i * 2 + 1] / 32768;
+              }
+              const source = audioCtx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(gain);
+              const startAt = Math.max(audioCtx.currentTime, nextAudioTime);
+              source.start(startAt);
+              nextAudioTime = startAt + buffer.duration;
+            }
+
+            // Раскладка клавиатуры Игрока 1 — фиксированная (GENESIS_KEY_MAP выше).
+            // GenesisCore.setInput() принимает полное состояние пада за раз (не
+            // buttonDown/Up по отдельности, как jsnes), поэтому храним его сами.
+            const player1Buttons: GenesisButtons = {};
+            const onKeyDown = (e: KeyboardEvent) => {
+              const action = GENESIS_KEY_MAP[e.code];
+              if (!action) return;
+              player1Buttons[action] = true;
+              core.setInput(0, player1Buttons);
+              e.preventDefault();
+            };
+            const onKeyUp = (e: KeyboardEvent) => {
+              const action = GENESIS_KEY_MAP[e.code];
+              if (!action) return;
+              player1Buttons[action] = false;
+              core.setInput(0, player1Buttons);
+              e.preventDefault();
+            };
+            document.addEventListener("keydown", onKeyDown);
+            document.addEventListener("keyup", onKeyUp);
+            genesisKeyHandlersRef.current = { onKeyDown, onKeyUp };
+
+            function loop() {
+              if (!pausedRef.current) {
+                core.frame();
+                const frame = core.getFrameRgba();
+                if (frame) {
+                  if (canvas.width !== frame.width || canvas.height !== frame.height) {
+                    canvas.width = frame.width;
+                    canvas.height = frame.height;
+                    if (stageRef.current) fitScreenPixelPerfect(stageRef.current, frame.width, frame.height);
+                  }
+                  ctx2d!.putImageData(new ImageData(new Uint8ClampedArray(frame.rgba), frame.width, frame.height), 0, 0);
+                }
+                playAudio(core.drainAudio());
+              }
+              genesisRafRef.current = requestAnimationFrame(loop);
+            }
+            genesisRafRef.current = requestAnimationFrame(loop);
+
+            fitScreenPixelPerfect(stageRef.current, core.width, core.height);
+            setStatus("playing");
+          })
+          .catch((err) => {
+            if (!cancelled) {
+              setErrorMessage(String(err));
+              setStatus("error");
+            }
+          });
         return;
       }
 
@@ -209,7 +348,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
           originalDestroy();
         };
 
-        fitScreenPixelPerfect(stageRef.current);
+        fitScreenPixelPerfect(stageRef.current, NES_WIDTH, NES_HEIGHT);
         setStatus("playing");
       })
       .catch((err) => {
@@ -224,6 +363,23 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
       cancelled = true;
       browserRef.current?.destroy();
       browserRef.current = null;
+      if (genesisRafRef.current !== undefined) {
+        cancelAnimationFrame(genesisRafRef.current);
+        genesisRafRef.current = undefined;
+      }
+      if (genesisKeyHandlersRef.current) {
+        document.removeEventListener("keydown", genesisKeyHandlersRef.current.onKeyDown);
+        document.removeEventListener("keyup", genesisKeyHandlersRef.current.onKeyUp);
+        genesisKeyHandlersRef.current = null;
+      }
+      if (genesisCoreRef.current) {
+        genesisCoreRef.current.destroy();
+        genesisCoreRef.current = null;
+      }
+      if (genesisAudioCtxRef.current) {
+        genesisAudioCtxRef.current.close().catch(() => {});
+        genesisAudioCtxRef.current = null;
+      }
       // Гейтим на реально созданный движок, а не просто на наличии netplay-сессии:
       // getVolume() асинхронный, и в dev под React.StrictMode эффект сначала
       // монтируется и тут же размонтируется "призрачно" — к этому моменту
@@ -243,11 +399,15 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     if (status !== "playing" || !stageRef.current) return;
     const stage = stageRef.current;
     function handleResize() {
-      fitScreenPixelPerfect(stage);
+      if (isGenesis && genesisCoreRef.current) {
+        fitScreenPixelPerfect(stage, genesisCoreRef.current.width, genesisCoreRef.current.height);
+      } else {
+        fitScreenPixelPerfect(stage, NES_WIDTH, NES_HEIGHT);
+      }
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [status]);
+  }, [status, isGenesis]);
 
   // jsnes не конфигурирует геймпад сам (ждёт мастер настройки нажатием кнопок), а его
   // встроенный GamepadController привязывает раскладку по строковому id устройства —
@@ -256,7 +416,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   // (см. src/utils/jsnesGamepad.ts) напрямую через nes.buttonDown/buttonUp, назначая
   // игроков по порядку подключения — первый геймпад Игроку 1, второй Игроку 2.
   useEffect(() => {
-    if (status !== "playing" || netplay) return; // кооп читает ввод сам (LocalInputReader)
+    if (status !== "playing" || netplay || isGenesis) return; // Genesis — отдельный опрос ниже, кооп читает ввод сам (LocalInputReader)
     const maps = getGamepadButtonMaps();
     const prevPressed: boolean[][] = [[], []];
     let rafId: number;
@@ -283,6 +443,38 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     rafId = requestAnimationFrame(poll);
     return () => cancelAnimationFrame(rafId);
   }, [status, netplay]);
+
+  // Геймпад для Genesis (3-кнопочный пад): фиксированная раскладка по умолчанию —
+  // D-pad → стрелки, кнопки 0/1/2 → B/A/C, кнопка 9 → Start. Полное состояние
+  // (не down/up-события), как и клавиатура игрока 1 в основном эффекте выше —
+  // GenesisCore.setInput() каждый раз принимает весь пад целиком.
+  useEffect(() => {
+    if (status !== "playing" || netplay || !isGenesis) return;
+    let rafId: number;
+    function poll() {
+      const core = genesisCoreRef.current;
+      if (core) {
+        const pads = Array.from(navigator.getGamepads()).filter((p): p is Gamepad => p !== null);
+        for (let i = 0; i < 2; i++) {
+          const pad = pads[i];
+          if (!pad) continue;
+          core.setInput(i as 0 | 1, {
+            up: pad.buttons[12]?.pressed,
+            down: pad.buttons[13]?.pressed,
+            left: pad.buttons[14]?.pressed,
+            right: pad.buttons[15]?.pressed,
+            b: pad.buttons[0]?.pressed,
+            a: pad.buttons[1]?.pressed,
+            c: pad.buttons[2]?.pressed,
+            start: pad.buttons[9]?.pressed,
+          });
+        }
+      }
+      rafId = requestAnimationFrame(poll);
+    }
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  }, [status, netplay, isGenesis]);
 
   // LB должен открывать оверлей и тогда, когда тот ещё закрыт — опрашиваем
   // геймпад независимо от useSpatialNavigation (та реагирует только пока
@@ -335,6 +527,13 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   }, [overlayOpen, overlayView]);
 
   function handleTogglePause() {
+    if (isGenesis) {
+      if (!genesisCoreRef.current) return;
+      // RAF-цикл Genesis сам проверяет pausedRef каждый тик (см. основной эффект) —
+      // здесь достаточно переключить state, ref синхронизируется отдельным эффектом.
+      setPaused(!paused);
+      return;
+    }
     if (!browserRef.current) return;
     if (paused) {
       browserRef.current.start();

@@ -35,7 +35,7 @@
 | id | INTEGER PK | |
 | game_id | INTEGER FK → Game | |
 | slot | INTEGER | Номер слота сохранения (1..3, см. `Emulator Screen` в [screens.md](screens.md)) |
-| file_path | TEXT | Путь к JSON-файлу `nes.toJSON()` — `<app-data>/saves/<game_id>/slot_<slot>.json`. **Планируется** (см. [platforms.md](platforms.md#save-state)): с появлением второго движка (Genesis) формат содержимого станет непрозрачным для лаунчера — конкретный движок выбирается по `Game.platform`, само поле/путь не меняются |
+| file_path | TEXT | Путь к файлу снимка — `<app-data>/saves/<game_id>/slot_<slot>.json`. Формат содержимого зависит от платформы игры и непрозрачен для бэкенда (он просто хранит переданную строку файлом): для NES — JSON от `nes.toJSON()`, для Genesis — base64 от бинарного `retro_serialize`-блоба ядра (см. [platforms.md](platforms.md#save-state-реализовано)); имя файла всегда `.json` независимо от платформы, менять не стали |
 | created_at | DATETIME | |
 
 Уникальный индекс по `(game_id, slot)` — сохранение в занятый слот перезаписывает запись (`ON CONFLICT DO UPDATE`), а не плодит дубликаты.

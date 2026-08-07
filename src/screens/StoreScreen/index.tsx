@@ -194,7 +194,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   async function handleAddGames() {
     const selected = await open({
       multiple: true,
-      filters: [{ name: "NES ROM", extensions: ["nes"] }],
+      filters: [{ name: "ROM", extensions: ["nes", "gen"] }],
     });
     if (!selected) return;
     const paths = Array.isArray(selected) ? selected : [selected];
