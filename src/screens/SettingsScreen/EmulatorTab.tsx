@@ -283,14 +283,6 @@ export function EmulatorTab() {
       >
         Сбросить по умолчанию
       </button>
-
-      <div className={styles.placeholderSection}>
-        <div>
-          <div className={styles.label}>Слоты сохранений</div>
-          <div className={styles.value}>Save state</div>
-        </div>
-        <span className={styles.badge}>Скоро</span>
-      </div>
     </div>
   );
 }
