@@ -1,4 +1,4 @@
-use crate::metadata::scraper::{build_client, BASE_URL, NES_SECTION_ID};
+use crate::metadata::scraper::{build_client, normalize_url, BASE_URL, NES_SECTION_ID};
 use scraper::{Html, Selector};
 
 /// Раздел ROM'ов на emu-land.net (см. docs/store.md). Использует тот же BASE_URL и
@@ -21,6 +21,10 @@ pub const BROWSE_LETTERS: &[&str] = &[
 pub struct StoreGameSummary {
     pub slug: String,
     pub title: String,
+    /// Превью-картинка со страницы поиска/списка (`ss.emu-land.net`, тот же хост, что
+    /// блокирует хотлинки по Referer у обложек метаданных, см. commands::store::store_cover_image) —
+    /// абсолютный URL, готовый передать в store_cover_image для скачивания/кэширования.
+    pub image_url: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -61,15 +65,25 @@ pub async fn search(query: &str) -> Result<Vec<StoreGameSummary>, String> {
         .map_err(|e| e.to_string())?;
 
     let document = Html::parse_document(&html);
-    let link_selector = Selector::parse(".fllinks p > a").unwrap();
+    // Контейнер — весь <p>, а не сразу <a>: рядом с ссылкой в той же разметке лежит
+    // превью-картинка (<img class="preview">), нужная тем же селектором не достать.
+    let row_selector = Selector::parse(".fllinks p").unwrap();
+    let link_selector = Selector::parse("a").unwrap();
+    let image_selector = Selector::parse("img").unwrap();
 
     Ok(document
-        .select(&link_selector)
-        .filter_map(|el| {
-            let href = el.value().attr("href")?;
+        .select(&row_selector)
+        .filter_map(|row| {
+            let link = row.select(&link_selector).next()?;
+            let href = link.value().attr("href")?;
             let slug = slug_from_roms_href(href)?;
-            let title: String = el.text().collect();
-            Some(StoreGameSummary { slug, title: title.trim().to_string() })
+            let title: String = link.text().collect();
+            let image_url = row
+                .select(&image_selector)
+                .next()
+                .and_then(|el| el.value().attr("src"))
+                .map(normalize_url);
+            Some(StoreGameSummary { slug, title: title.trim().to_string(), image_url })
         })
         .collect())
 }
@@ -103,6 +117,7 @@ pub async fn browse_letter(letter: &str, page: u32) -> Result<StoreListingPage, 
 
     let container_selector = Selector::parse(".fcontainer").unwrap();
     let title_selector = Selector::parse(".rheader a").unwrap();
+    let image_selector = Selector::parse(".picture img").unwrap();
     let games: Vec<StoreGameSummary> = document
         .select(&container_selector)
         .filter_map(|container| {
@@ -110,7 +125,12 @@ pub async fn browse_letter(letter: &str, page: u32) -> Result<StoreListingPage, 
             let href = link.value().attr("href")?;
             let slug = slug_from_roms_href(href)?;
             let title: String = link.text().collect();
-            Some(StoreGameSummary { slug, title: title.trim().to_string() })
+            let image_url = container
+                .select(&image_selector)
+                .next()
+                .and_then(|el| el.value().attr("src"))
+                .map(normalize_url);
+            Some(StoreGameSummary { slug, title: title.trim().to_string(), image_url })
         })
         .collect();
 
@@ -319,11 +339,17 @@ mod tests {
     #[ignore]
     async fn searches_real_game() {
         let results = search("Contra").await.expect("search should succeed");
-        assert!(
-            results.iter().any(|g| g.title == "Contra" && g.slug == "contra"),
-            "got: {:?}",
-            results.iter().map(|g| (&g.slug, &g.title)).collect::<Vec<_>>()
-        );
+        let contra = results
+            .iter()
+            .find(|g| g.title == "Contra" && g.slug == "contra")
+            .unwrap_or_else(|| {
+                panic!(
+                    "got: {:?}",
+                    results.iter().map(|g| (&g.slug, &g.title)).collect::<Vec<_>>()
+                )
+            });
+        let image_url = contra.image_url.as_deref().expect("search result should have a preview image");
+        assert!(image_url.starts_with("https://ss.emu-land.net/"), "got: {image_url}");
     }
 
     #[tokio::test]
@@ -331,7 +357,13 @@ mod tests {
     async fn browses_real_letter_page() {
         let page = browse_letter("b", 1).await.expect("browse should succeed");
         assert!(page.total_pages > 1, "got total_pages={}", page.total_pages);
-        assert!(page.games.iter().any(|g| g.slug == "babel-no-tou"));
+        let babel = page
+            .games
+            .iter()
+            .find(|g| g.slug == "babel-no-tou")
+            .expect("should find babel-no-tou in listing");
+        let image_url = babel.image_url.as_deref().expect("listing result should have a preview image");
+        assert!(image_url.starts_with("https://ss.emu-land.net/"), "got: {image_url}");
     }
 
     #[tokio::test]

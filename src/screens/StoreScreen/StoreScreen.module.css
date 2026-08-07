@@ -253,12 +253,19 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   width: 100%;
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-md);
   background: #22242C;
   color: #9A9CA6;
   opacity: 0.8;
+}
+
+.tileCoverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .tileTitle {

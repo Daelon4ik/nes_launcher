@@ -50,6 +50,7 @@ fn main() {
             commands::store::store_search,
             commands::store::store_browse,
             commands::store::store_list_files,
+            commands::store::store_cover_image,
             commands::store::store_install,
         ])
         .run(tauri::generate_context!())

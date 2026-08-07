@@ -122,6 +122,18 @@ pub fn game_id_by_rom_path(conn: &Connection, rom_path: &str) -> rusqlite::Resul
     .optional()
 }
 
+/// Меняет title/rom_path у уже существующей записи — используется при замене версии
+/// игры из магазина (см. commands::store::store_install с replace_game_id): та же
+/// запись (и её история play_session/save_state) сохраняется, меняется только то,
+/// какой физический файл за ней стоит.
+pub fn update_game_rom(conn: &Connection, game_id: i64, title: &str, rom_path: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE game SET title = ?1, rom_path = ?2 WHERE id = ?3",
+        params![title, rom_path, game_id],
+    )?;
+    Ok(())
+}
+
 /// Удаляет игру и связанные с ней сессии/сохранения (нет ON DELETE CASCADE в схеме).
 pub fn delete_game(conn: &Connection, game_id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM play_session WHERE game_id = ?1", params![game_id])?;

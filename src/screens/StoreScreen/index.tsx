@@ -6,7 +6,9 @@ import { Gamepad2, Library, Settings, Store } from "lucide-react";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getRomLibraryPaths } from "../../api/settings";
-import { storeBrowse, storeInstall, storeListFiles, storeSearch } from "../../api/store";
+import { storeBrowse, storeCoverImage, storeInstall, storeListFiles, storeSearch } from "../../api/store";
+import { coverImageSrc } from "../../utils/coverImage";
+import type { Game } from "../../types/game";
 import { BROWSE_LETTERS, type StoreFile, type StoreGameSummary } from "../../types/store";
 import logo from "../../assets/logo.png";
 import styles from "./StoreScreen.module.css";
@@ -20,7 +22,7 @@ interface StoreScreenProps {
 const SEARCH_DEBOUNCE_MS = 400;
 
 export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
-  const { loading: installingLocal, install: installLocal } = useGameLibrary();
+  const { loading: installingLocal, install: installLocal, games: libraryGames } = useGameLibrary();
   const screenRef = useRef<HTMLDivElement>(null);
   useSpatialNavigation(screenRef);
 
@@ -34,10 +36,23 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // Собственная копия библиотеки, а не прямое использование libraryGames из хука:
+  // после установки/замены версии через store_install нужно сразу видеть свежий
+  // список (бэкенд возвращает его результатом команды), а useGameLibrary про эти
+  // изменения не знает — обновляет своё состояние только через свои install/remove.
+  const [installedGames, setInstalledGames] = useState<Game[]>([]);
+  useEffect(() => setInstalledGames(libraryGames), [libraryGames]);
+
   const [selectedGame, setSelectedGame] = useState<StoreGameSummary | null>(null);
+  const [replaceGameId, setReplaceGameId] = useState<number | null>(null);
   const [files, setFiles] = useState<StoreFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+
+  // Карточка магазина, для которой при клике обнаружилось совпадение по названию с
+  // уже установленной игрой — подтверждение "сменить версию?" показывается вместо
+  // сразу открывающегося списка файлов (см. openGame).
+  const [duplicateGame, setDuplicateGame] = useState<{ store: StoreGameSummary; installed: Game } | null>(null);
 
   const [pendingInstall, setPendingInstall] = useState<StoreFile | null>(null);
   const [installingFid, setInstallingFid] = useState<string | null>(null);
@@ -45,7 +60,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   const [installedMessage, setInstalledMessage] = useState<string | null>(null);
 
   const isSearching = query.trim().length > 0;
-  const anyModalOpen = selectedGame !== null || pendingInstall !== null;
+  const anyModalOpen = selectedGame !== null || pendingInstall !== null || duplicateGame !== null;
 
   useEffect(() => {
     getRomLibraryPaths()
@@ -105,8 +120,25 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     container.querySelector<HTMLElement>("[data-nav]")?.focus();
   }, [games, anyModalOpen]);
 
+  // Совпадение по названию — единственный доступный способ узнать, что игра из
+  // магазина уже стоит: у установленных игр нет сохранённого slug emu-land.net,
+  // только title (см. docs/data-model.md).
+  function findInstalled(game: StoreGameSummary): Game | undefined {
+    return installedGames.find((g) => g.title.toLowerCase() === game.title.toLowerCase());
+  }
+
   function openGame(game: StoreGameSummary) {
+    const installed = findInstalled(game);
+    if (installed) {
+      setDuplicateGame({ store: game, installed });
+      return;
+    }
+    openFileList(game, null);
+  }
+
+  function openFileList(game: StoreGameSummary, replaceId: number | null) {
     setSelectedGame(game);
+    setReplaceGameId(replaceId);
     setFiles([]);
     setFilesError(null);
     setInstallError(null);
@@ -119,6 +151,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
 
   function closeGame() {
     setSelectedGame(null);
+    setReplaceGameId(null);
     setPendingInstall(null);
   }
 
@@ -131,7 +164,9 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
 
   function handleInstallClick(file: StoreFile) {
     setInstallError(null);
-    if (libraryPaths.length > 1) {
+    // При замене версии папка уже известна (та же, что у старого файла) — бэкенд
+    // игнорирует targetDir для этого случая, спрашивать пользователя не нужно.
+    if (replaceGameId === null && libraryPaths.length > 1) {
       setPendingInstall(file);
     } else {
       runInstall(file, libraryPaths[0] ?? null);
@@ -143,9 +178,14 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     setPendingInstall(null);
     setInstallingFid(file.fid);
     setInstallError(null);
-    storeInstall(selectedGame.slug, file.fid, selectedGame.title, targetDir)
-      .then(() => {
-        setInstalledMessage(`«${selectedGame.title}» установлена в библиотеку`);
+    storeInstall(selectedGame.slug, file.fid, selectedGame.title, targetDir, replaceGameId)
+      .then((updatedGames) => {
+        setInstalledGames(updatedGames);
+        setInstalledMessage(
+          replaceGameId !== null
+            ? `«${selectedGame.title}» обновлена до выбранной версии`
+            : `«${selectedGame.title}» установлена в библиотеку`,
+        );
       })
       .catch((err) => setInstallError(String(err)))
       .finally(() => setInstallingFid(null));
@@ -250,19 +290,12 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
 
           <div className={styles.grid}>
             {games.map((game) => (
-              <button
+              <StoreGameTile
                 key={game.slug}
-                type="button"
-                data-nav
-                className={styles.tile}
-                onClick={() => openGame(game)}
+                game={game}
                 disabled={anyModalOpen}
-              >
-                <span className={styles.tileCover}>
-                  <Gamepad2 size={32} strokeWidth={1.5} />
-                </span>
-                <span className={styles.tileTitle}>{game.title}</span>
-              </button>
+                onOpen={() => openGame(game)}
+              />
             ))}
           </div>
 
@@ -320,7 +353,9 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
       {selectedGame && (
         <div className={styles.modalBackdrop} onKeyDown={(e) => handleModalKeyDown(e, closeGame)}>
           <div className={styles.modal} role="dialog" aria-modal="true">
-            <h2 className={styles.modalTitle}>{selectedGame.title}</h2>
+            <h2 className={styles.modalTitle}>
+              {replaceGameId !== null ? `Заменить версию: ${selectedGame.title}` : selectedGame.title}
+            </h2>
 
             {filesLoading && <p className={styles.empty}>Загрузка списка файлов…</p>}
             {filesError && <p className={styles.error}>{filesError}</p>}
@@ -347,7 +382,13 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
                     onClick={() => handleInstallClick(file)}
                     disabled={installingFid !== null || pendingInstall !== null}
                   >
-                    {installingFid === file.fid ? "Установка…" : "Установить"}
+                    {installingFid === file.fid
+                      ? replaceGameId !== null
+                        ? "Замена…"
+                        : "Установка…"
+                      : replaceGameId !== null
+                        ? "Заменить"
+                        : "Установить"}
                   </button>
                 </div>
               ))}
@@ -393,6 +434,79 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
           </div>
         </div>
       )}
+
+      {duplicateGame && (
+        <div className={styles.modalBackdrop} onKeyDown={(e) => handleModalKeyDown(e, () => setDuplicateGame(null))}>
+          <div className={styles.modal} role="dialog" aria-modal="true">
+            <h2 className={styles.modalTitle}>Игра уже установлена</h2>
+            <p className={styles.modalText}>
+              «{duplicateGame.installed.title}» уже есть в вашей библиотеке. Сменить версию на другую?
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                data-nav
+                className={styles.ghostButton}
+                onClick={() => setDuplicateGame(null)}
+              >
+                Нет
+              </button>
+              <button
+                type="button"
+                data-nav
+                className={styles.installButton}
+                onClick={() => {
+                  const { store, installed } = duplicateGame;
+                  setDuplicateGame(null);
+                  openFileList(store, installed.id);
+                }}
+              >
+                Сменить версию
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+interface StoreGameTileProps {
+  game: StoreGameSummary;
+  disabled: boolean;
+  onOpen: () => void;
+}
+
+// Плитка списка — картинка подгружается лениво по карточке (не пачкой при каждом
+// поиске/просмотре страницы, см. api/store.ts::storeCoverImage), пока не готова —
+// плейсхолдер-иконка на месте обложки, тот же слот, тот же 3:4-контейнер.
+function StoreGameTile({ game, disabled, onOpen }: StoreGameTileProps) {
+  const [coverPath, setCoverPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCoverPath(null);
+    if (!game.imageUrl) return;
+    let cancelled = false;
+    storeCoverImage(game.slug, game.imageUrl)
+      .then((path) => {
+        if (!cancelled) setCoverPath(path);
+      })
+      .catch(() => {}); // best-effort — картинка необязательна, остаётся плейсхолдер
+    return () => {
+      cancelled = true;
+    };
+  }, [game.slug, game.imageUrl]);
+
+  return (
+    <button type="button" data-nav className={styles.tile} onClick={onOpen} disabled={disabled}>
+      <span className={styles.tileCover}>
+        {coverPath ? (
+          <img src={coverImageSrc(coverPath)} alt="" className={styles.tileCoverImage} />
+        ) : (
+          <Gamepad2 size={32} strokeWidth={1.5} />
+        )}
+      </span>
+      <span className={styles.tileTitle}>{game.title}</span>
+    </button>
   );
 }

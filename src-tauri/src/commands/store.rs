@@ -2,13 +2,13 @@ use crate::commands::library::default_rom_dir;
 use crate::commands::metadata::download_cover;
 use crate::db;
 use crate::db::models::Game;
-use crate::metadata::scraper::fetch_metadata_by_url;
+use crate::metadata::scraper::{download_image, fetch_metadata_by_url};
 use crate::store::scraper::{self, StoreFile, StoreGameSummary, StoreListingPage};
 use rusqlite::Connection;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 pub async fn store_search(query: String) -> Result<Vec<StoreGameSummary>, String> {
@@ -25,6 +25,30 @@ pub async fn store_list_files(slug: String) -> Result<Vec<StoreFile>, String> {
     scraper::list_files(&slug).await
 }
 
+/// Скачивает и кэширует превью-картинку карточки магазина (`ss.emu-land.net` блокирует
+/// хотлинки по Referer, как и обложки метаданных — см. commands::metadata::download_cover
+/// — отдать `image_url` из StoreGameSummary напрямую в webview нельзя). В отличие от
+/// download_cover — кэш не по `game_id` (игра ещё не в библиотеке, только просматривается
+/// в магазине), а по `slug`, отдельная директория `<app-data>/store_previews`. Вызывается
+/// фронтендом лениво, по одной карточке за раз, а не пачкой при каждом поиске/просмотре
+/// страницы — иначе список из ~20+ результатов ждал бы все загрузки картинок разом.
+/// Уже закэшированный файл не перекачивается повторно.
+#[tauri::command]
+pub async fn store_cover_image(app: AppHandle, slug: String, url: String) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("store_previews");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let ext = Path::new(&url).extension().and_then(|e| e.to_str()).unwrap_or("png");
+    let dest = dir.join(format!("{}.{ext}", sanitize_filename(&slug)));
+    if dest.exists() {
+        return Ok(dest.to_string_lossy().to_string());
+    }
+
+    let bytes = download_image(&url).await?;
+    std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
 /// Скачивает выбранный файл, распаковывает единственный .nes из архива, регистрирует
 /// его в библиотеке (тем же способом, что install_games для вручную выбранных
 /// файлов — см. commands::library) и сразу подтягивает описание/обложку/режим игры
@@ -34,6 +58,14 @@ pub async fn store_list_files(slug: String) -> Result<Vec<StoreFile>, String> {
 /// вернул store_search/store_browse), а не имя файла внутри архива: у файлов в
 /// архиве оно часто содержит регион/язык/ревизию ("Contra (Japan) (En) (Rev
 /// 1)"). Используется и для имени файла на диске, и для поиска метаданных.
+///
+/// `replace_game_id` — если задан, это не новая установка, а смена версии уже
+/// установленной игры (см. StoreScreen: карточка с совпадающим названием уже есть в
+/// библиотеке, пользователь подтвердил замену): та же запись в БД (и её история —
+/// play_session/save_state) сохраняется, меняется только физический файл (см.
+/// replace_installed_game), `target_dir` в этом случае игнорируется — новый файл
+/// встаёт в ту же папку, что и старый. Метаданные повторно не подтягиваются — версии
+/// одной игры на emu-land.net используют общую страницу/описание/обложку.
 #[tauri::command]
 pub async fn store_install(
     db: State<'_, Mutex<Connection>>,
@@ -42,41 +74,84 @@ pub async fn store_install(
     fid: String,
     title: String,
     target_dir: Option<String>,
+    replace_game_id: Option<i64>,
 ) -> Result<Vec<Game>, String> {
     let id = scraper::resolve_game_id(&slug).await?;
     let zip_bytes = scraper::download_zip(&id, &fid).await?;
     let rom_bytes = extract_nes_from_zip(&zip_bytes)?;
 
-    let dir = {
-        let conn = db.lock().map_err(|e| e.to_string())?;
-        resolve_install_dir(&conn, &app, target_dir)?
-    };
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let filename = format!("{}.nes", sanitize_filename(&title));
-    let dest = unique_path(&dir, &filename);
-    std::fs::write(&dest, &rom_bytes).map_err(|e| e.to_string())?;
-    let rom_path = dest.to_string_lossy().to_string();
+    let game_id = match replace_game_id {
+        Some(old_game_id) => replace_installed_game(&db, old_game_id, &title, &rom_bytes)?,
+        None => {
+            let dir = {
+                let conn = db.lock().map_err(|e| e.to_string())?;
+                resolve_install_dir(&conn, &app, target_dir)?
+            };
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            let filename = format!("{}.nes", sanitize_filename(&title));
+            let dest = unique_path(&dir, &filename);
+            std::fs::write(&dest, &rom_bytes).map_err(|e| e.to_string())?;
+            let rom_path = dest.to_string_lossy().to_string();
 
-    let now = chrono::Utc::now().to_rfc3339();
-    let game_id = {
-        let conn = db.lock().map_err(|e| e.to_string())?;
-        db::insert_game_if_missing(&conn, &title, &rom_path, &now).map_err(|e| e.to_string())?;
-        db::game_id_by_rom_path(&conn, &rom_path)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Не удалось найти только что установленную игру в библиотеке".to_string())?
+            let now = chrono::Utc::now().to_rfc3339();
+            let conn = db.lock().map_err(|e| e.to_string())?;
+            db::insert_game_if_missing(&conn, &title, &rom_path, &now).map_err(|e| e.to_string())?;
+            db::game_id_by_rom_path(&conn, &rom_path)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Не удалось найти только что установленную игру в библиотеке".to_string())?
+        }
     };
 
-    // Страницу игры на emu-land.net уже находили выше по slug (resolve_game_id) —
-    // используем тот же slug, чтобы не искать заново по названию. Best-effort: сбой
-    // сети или разметки сайта не должен откатывать уже выполненную установку игры,
-    // просто останется без описания/обложки — как и у вручную добавленных файлов,
-    // metadata можно дозагрузить кнопкой «Обновить» на вкладке «Метаданные».
-    if let Err(err) = try_fetch_metadata(&db, &app, game_id, &slug).await {
-        eprintln!("Не удалось автоматически загрузить метаданные для «{title}»: {err}");
+    if replace_game_id.is_none() {
+        // Страницу игры на emu-land.net уже находили выше по slug (resolve_game_id) —
+        // используем тот же slug, чтобы не искать заново по названию. Best-effort: сбой
+        // сети или разметки сайта не должен откатывать уже выполненную установку игры,
+        // просто останется без описания/обложки — как и у вручную добавленных файлов,
+        // metadata можно дозагрузить кнопкой «Обновить» на вкладке «Метаданные».
+        if let Err(err) = try_fetch_metadata(&db, &app, game_id, &slug).await {
+            eprintln!("Не удалось автоматически загрузить метаданные для «{title}»: {err}");
+        }
     }
 
     let conn = db.lock().map_err(|e| e.to_string())?;
     db::list_games(&conn).map_err(|e| e.to_string())
+}
+
+/// Заменяет физический файл уже установленной игры новым — та же запись (id и её
+/// история play_session/save_state) сохраняется, меняется только rom_path/title.
+/// Старый файл удаляется с диска, чтобы не плодить сироты при смене версии (если он
+/// уже отсутствовал — например, пользователь удалил его вручную с диска, — не
+/// считаем это ошибкой, просто нечего удалять). Новый файл встаёт в ту же папку.
+fn replace_installed_game(
+    db: &State<'_, Mutex<Connection>>,
+    game_id: i64,
+    title: &str,
+    rom_bytes: &[u8],
+) -> Result<i64, String> {
+    let old_rom_path = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        db::game_rom_path(&conn, game_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Игра с id={game_id} не найдена"))?
+    };
+    let old_path = PathBuf::from(&old_rom_path);
+    let dir = old_path
+        .parent()
+        .ok_or_else(|| "У старого файла игры нет родительской папки".to_string())?
+        .to_path_buf();
+
+    if old_path.exists() {
+        std::fs::remove_file(&old_path).map_err(|e| e.to_string())?;
+    }
+
+    let filename = format!("{}.nes", sanitize_filename(title));
+    let dest = unique_path(&dir, &filename);
+    std::fs::write(&dest, rom_bytes).map_err(|e| e.to_string())?;
+    let rom_path = dest.to_string_lossy().to_string();
+
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    db::update_game_rom(&conn, game_id, title, &rom_path).map_err(|e| e.to_string())?;
+    Ok(game_id)
 }
 
 async fn try_fetch_metadata(

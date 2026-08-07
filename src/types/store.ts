@@ -3,6 +3,7 @@
 export interface StoreGameSummary {
   slug: string;
   title: string;
+  imageUrl: string | null;
 }
 
 export interface StoreListingPage {
