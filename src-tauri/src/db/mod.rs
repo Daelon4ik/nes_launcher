@@ -50,8 +50,27 @@ pub fn init(db_path: &Path) -> rusqlite::Result<Connection> {
     // для баз, созданных до появления player_mode, нужен отдельный ALTER TABLE.
     add_column_if_missing(&conn, "game", "player_mode", "TEXT NOT NULL DEFAULT 'single'")?;
     add_column_if_missing(&conn, "game", "favorite", "INTEGER NOT NULL DEFAULT 0")?;
-    add_column_if_missing(&conn, "game", "platform", "TEXT NOT NULL DEFAULT 'nes'")?;
+    // ALTER TABLE ... DEFAULT 'nes' подставляет 'nes' ВСЕМ уже существующим строкам
+    // (в т.ч. Genesis-играм, добавленным до появления этой колонки) — без бэкафилла
+    // ниже они навсегда остались бы под платформой 'nes' и никогда не попадали бы
+    // под фильтр Genesis на Main Screen. Бэкафилл нужен только когда колонку только
+    // что добавили — для новых баз (CREATE TABLE, платформа уже верна из insert_game_if_missing)
+    // и для повторных запусков (не добавляли колонку) он не нужен.
+    if add_column_if_missing(&conn, "game", "platform", "TEXT NOT NULL DEFAULT 'nes'")? {
+        backfill_platform_from_rom_path(&conn)?;
+    }
     Ok(conn)
+}
+
+/// Пересчитывает `platform` по расширению `rom_path` для всех строк — см. комментарий
+/// в `init()`. Та же логика определения платформы, что и `platform_for_rom_path`, но
+/// выражена в SQL, чтобы обновить все строки одним запросом, а не построчно из Rust.
+fn backfill_platform_from_rom_path(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE game SET platform = CASE WHEN LOWER(rom_path) LIKE '%.gen' THEN 'genesis' ELSE 'nes' END",
+        [],
+    )?;
+    Ok(())
 }
 
 /// Платформа по расширению файла ROM — `.gen` это Sega Genesis, всё остальное (включая
@@ -64,7 +83,9 @@ fn platform_for_rom_path(rom_path: &str) -> &'static str {
     if is_genesis { "genesis" } else { "nes" }
 }
 
-fn add_column_if_missing(conn: &Connection, table: &str, column: &str, ddl: &str) -> rusqlite::Result<()> {
+/// Возвращает true, если колонку пришлось добавить (её не было) — вызывающий код
+/// использует это, чтобы решить, нужен ли бэкафилл данных в неё (см. platform в init()).
+fn add_column_if_missing(conn: &Connection, table: &str, column: &str, ddl: &str) -> rusqlite::Result<bool> {
     let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
     let has_column = stmt
         .query_map([], |row| row.get::<_, String>(1))?
@@ -73,7 +94,7 @@ fn add_column_if_missing(conn: &Connection, table: &str, column: &str, ddl: &str
     if !has_column {
         conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {ddl}"), [])?;
     }
-    Ok(())
+    Ok(!has_column)
 }
 
 fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
@@ -346,11 +367,22 @@ mod tests {
                 params!["Contra", "/roms/contra.nes", "2026-01-01T00:00:00Z"],
             )
             .unwrap();
+            // Genesis-игра, установленная до появления platform — до фикса бэкафилла
+            // ALTER TABLE ... DEFAULT 'nes' навсегда оставлял бы её под платформой
+            // 'nes', и она пропадала бы из фильтра Genesis на Main Screen.
+            conn.execute(
+                "INSERT INTO game (title, rom_path, added_at, total_playtime_seconds) VALUES (?1, ?2, ?3, 0)",
+                params!["Sonic", "/roms/sonic.gen", "2026-01-01T00:00:00Z"],
+            )
+            .unwrap();
         }
 
         let conn = init(&path).unwrap();
         let games = list_games(&conn).unwrap();
-        assert_eq!(games[0].platform, "nes");
+        let contra = games.iter().find(|g| g.title == "Contra").unwrap();
+        let sonic = games.iter().find(|g| g.title == "Sonic").unwrap();
+        assert_eq!(contra.platform, "nes");
+        assert_eq!(sonic.platform, "genesis");
 
         drop(conn);
         let _ = std::fs::remove_file(&path);
