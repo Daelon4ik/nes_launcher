@@ -35,9 +35,12 @@ export function joinHost(
 // Вызывается из игрового цикла ~60 раз/сек (см. src/netplay/engine.ts) —
 // fire-and-forget: ждать ответ каждый кадр значило бы завязывать локальный
 // рендер на IPC round-trip. Ошибку (например, партнёр уже отключился) не
-// пробрасываем — сессия и так узнает об этом по netplay://peer-disconnected.
+// пробрасываем — сессия и так узнает об этом по netplay://peer-disconnected;
+// логируем в консоль, чтобы отправка, молча падающая каждый кадр, не
+// проходила совсем незамеченной (см. STALL_TIMEOUT_TICKS в netplay/engine.ts,
+// который тоже страхует от этого сценария, но с задержкой в несколько секунд).
 export function sendInput(frame: number, buttons: number): void {
-  invoke("netplay_send_input", { frame, buttons }).catch(() => {});
+  invoke("netplay_send_input", { frame, buttons }).catch((err) => console.error("netplay_send_input:", err));
 }
 
 export function disconnect(): Promise<void> {
@@ -64,7 +67,7 @@ export function steamJoin(peerSteamId: string, displayName: string, romChecksum:
 
 // Как sendInput выше — fire-and-forget, вызывается из игрового цикла.
 export function steamSendInput(frame: number, buttons: number): void {
-  invoke("steam_send_input", { frame, buttons }).catch(() => {});
+  invoke("steam_send_input", { frame, buttons }).catch((err) => console.error("steam_send_input:", err));
 }
 
 export function steamDisconnect(): Promise<void> {

@@ -14,6 +14,14 @@ import { applyButtons, LocalInputReader } from "./localInput";
 // (тот же процесс, доли мс). Не настраивается пользователем — см. docs/netplay.md.
 const INPUT_DELAY_FRAMES = 6;
 
+// Сколько подряд тиков можно простоять без хода партнёра, прежде чем считать
+// сессию зависшей и явно сообщить об этом — без этого таймаута локальный рендер
+// просто замирает намертво и молча (лок-степ по конструкции не продвигается без
+// ввода партнёра, см. tick() ниже), что для пользователя неотличимо от чёрного
+// экрана/краша. 300 тиков ~5с при 60к/с — с большим запасом над LAN/Steam Relay
+// RTT в здоровой сети, но конечно, чтобы разрыв не проходил незамеченным.
+const STALL_TIMEOUT_TICKS = 300;
+
 export interface NetplayEngineOptions {
   container: HTMLElement;
   romData: Uint8Array;
@@ -39,6 +47,7 @@ export class NetplayEngine {
   private readonly onPeerDisconnectedCb?: () => void;
 
   private frameNo = 0;
+  private stalledTicks = 0;
   private readonly localHistory = new Map<number, number>();
   private readonly remoteHistory = new Map<number, number>();
   private rafId = 0;
@@ -119,9 +128,16 @@ export class NetplayEngine {
         // Ввод партнёра для текущего кадра ещё не пришёл — не продвигаемся.
         // Это и есть гарантия отсутствия рассинхрона: кадр не рендерится, пока
         // обе стороны не знают точное состояние обоих контроллеров для него.
+        this.stalledTicks++;
+        if (this.stalledTicks >= STALL_TIMEOUT_TICKS) {
+          this.onErrorCb?.(new Error("Партнёр не отвечает — нет данных от сети. Проверьте соединение."));
+          this.destroy();
+          return;
+        }
         this.rafId = requestAnimationFrame(this.tick);
         return;
       }
+      this.stalledTicks = 0;
 
       const localBitsForFrame = this.localHistory.get(this.frameNo) ?? 0;
       applyButtons(this.nes, this.localPlayer, localBitsForFrame);
