@@ -274,6 +274,15 @@ function SteamHostView({ game, onReady }: { game: Game; onReady: (session: Netpl
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [localId, setLocalId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // В отличие от LAN (netplay_stop_hosting специально не трогает уже
+  // установленную сессию, см. netplay.rs), у Steam нет отдельной команды
+  // «отменить хостинг, не разрывая сессию» — steam_disconnect всегда чистит
+  // guard.peer на Rust-стороне. Поэтому после успешного client-connected
+  // безусловный steamDisconnect() в cleanup рвал бы только что установленное
+  // P2P-соединение прямо при переходе на Emulator Screen (который сам вызывает
+  // steamDisconnect() при реальном выходе из игры) — этот флаг отличает
+  // «отмена/уход до подключения» от «успешно подключились и уходим с лобби».
+  const connectedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +304,7 @@ function SteamHostView({ game, onReady }: { game: Game; onReady: (session: Netpl
 
         unlistenConnected = await netplayApi.onClientConnected((peer) => {
           if (cancelled) return;
+          connectedRef.current = true;
           onReady({ role: "host", transport: "steam", localPlayer: 1, peerName: peer.displayName, romData });
         });
 
@@ -311,7 +321,9 @@ function SteamHostView({ game, onReady }: { game: Game; onReady: (session: Netpl
 
     return () => {
       cancelled = true;
-      netplayApi.steamDisconnect().catch(() => {});
+      if (!connectedRef.current) {
+        netplayApi.steamDisconnect().catch(() => {});
+      }
       unlistenConnected?.();
     };
   }, [game.id]);
