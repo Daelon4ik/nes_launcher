@@ -70,3 +70,20 @@ export function getGenesisCodeBasedKeyMap(): Record<string, [0 | 1, GenesisActio
 
   return map;
 }
+
+// Для netplay (см. src/netplay/genesisLocalInput.ts): там всегда только один
+// локальный игрок, поэтому раскладки обоих слотов объединяются в одну плоскую
+// карту — тот же принцип, что у getNetplayKeyMap в keyboardControls.ts.
+export function getNetplayGenesisKeyMap(): Record<string, GenesisActionName> {
+  const controls = getSavedGenesisControls();
+  const map: Record<string, GenesisActionName> = {};
+
+  for (const [action, binding] of Object.entries(controls.player1)) {
+    map[binding.code] = action as GenesisActionName;
+  }
+  for (const [action, binding] of Object.entries(controls.player2)) {
+    map[binding.code] = action as GenesisActionName;
+  }
+
+  return map;
+}

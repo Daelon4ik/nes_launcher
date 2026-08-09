@@ -159,24 +159,17 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     getVolume().then((volume) => {
       if (cancelled) return;
 
-      if (netplay && isGenesis) {
-        // NetplayEngine завязан на внутренности jsnes (см. docs/netplay.md) — для
-        // Genesis кооп ещё не реализован (см. docs/platforms.md), явная ошибка
-        // вместо попытки скормить Genesis ROM в NES-движок.
-        setErrorMessage("Кооп для Sega Genesis игр пока не поддерживается.");
-        setStatus("error");
-        return;
-      }
-
       if (netplay) {
         // ROM уже прочитан в лобби (там же проверена чек-сумма с партнёром) —
         // повторно читать не нужно, к тому же движок должен грузить ровно те же
         // байты, что были захэшированы, без риска рассинхрона из-за гонки.
         if (!stageRef.current) return;
+        const stage = stageRef.current;
         netplayEngineRef.current = new NetplayEngine({
-          container: stageRef.current,
+          container: stage,
           romData: netplay.romData,
           localPlayer: netplay.localPlayer,
+          platform: isGenesis ? "genesis" : "nes",
           volume,
           sendInput: netplay.transport === "steam" ? steamSendInput : sendNetplayInput,
           onError: (err) => {
@@ -189,9 +182,16 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             setErrorMessage("Партнёр отключился.");
             setStatus("error");
           },
+          // NES готов сразу (синхронно, ещё до того как netplayEngineRef.current
+          // вообще успевает присвоиться — поэтому размер приходит аргументом, а
+          // не через ref, см. комментарий у onReady в engine.ts), Genesis —
+          // только после загрузки WASM-ядра (NetplayEngine.initGenesis).
+          onReady: ({ width, height }) => {
+            if (cancelled) return;
+            fitScreenPixelPerfect(stage, width, height);
+            setStatus("playing");
+          },
         });
-        fitScreenPixelPerfect(stageRef.current, NES_WIDTH, NES_HEIGHT);
-        setStatus("playing");
         return;
       }
 
@@ -407,7 +407,9 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     if (status !== "playing" || !stageRef.current) return;
     const stage = stageRef.current;
     function handleResize() {
-      if (isGenesis && genesisCoreRef.current) {
+      if (netplayEngineRef.current) {
+        fitScreenPixelPerfect(stage, netplayEngineRef.current.width, netplayEngineRef.current.height);
+      } else if (isGenesis && genesisCoreRef.current) {
         fitScreenPixelPerfect(stage, genesisCoreRef.current.width, genesisCoreRef.current.height);
       } else {
         fitScreenPixelPerfect(stage, NES_WIDTH, NES_HEIGHT);

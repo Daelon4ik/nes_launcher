@@ -81,3 +81,17 @@ export function getGenesisGamepadButtonMaps(): [GenesisGamepadBindingMaps, Genes
   const controls = getSavedGenesisGamepadControls();
   return [toBindingMaps(controls.player1), toBindingMaps(controls.player2)];
 }
+
+// Для netplay (см. src/netplay/genesisLocalInput.ts): там всегда только один
+// локальный игрок, поэтому раскладки обоих слотов объединяются в одну плоскую
+// карту — тот же принцип, что у getNetplayGamepadMap в jsnesGamepad.ts.
+export function getNetplayGenesisGamepadMap(): GenesisGamepadBindingMaps {
+  const controls = getSavedGenesisGamepadControls();
+  const p1 = toBindingMaps(controls.player1);
+  const p2 = toBindingMaps(controls.player2);
+  const buttons = new Map(p1.buttons);
+  for (const [buttonId, action] of p2.buttons) {
+    buttons.set(buttonId, action);
+  }
+  return { buttons, axes: [...p1.axes, ...p2.axes] };
+}
