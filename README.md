@@ -38,6 +38,31 @@ nes_launhder/
     └── types/                # общие TypeScript-типы
 ```
 
+## Установка
+
+Готовые установщики лежат в [`build/`](build/).
+
+### Windows
+
+1. Скачайте `NES Launcher_<версия>_x64-setup.exe` из [`build/`](build/).
+2. Запустите файл и пройдите шаги установщика.
+3. Windows SmartScreen может предупредить о неизвестном издателе (установщик не подписан сертификатом) — выберите «Подробнее» → «Выполнить в любом случае».
+
+### Linux
+
+**Deb-пакет** (Debian, Ubuntu и производные):
+
+```bash
+sudo apt install ./build/NES\ Launcher_<версия>_amd64.deb
+```
+
+**AppImage** (любой дистрибутив):
+
+```bash
+chmod +x build/NES_Launcher-x86_64.AppImage
+./build/NES_Launcher-x86_64.AppImage
+```
+
 ## Разработка
 
 ```bash
