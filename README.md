@@ -82,9 +82,4 @@ npm run dev  # http://localhost:1420
 GDK_BACKEND=x11 npm run tauri dev
 ```
 
-**Кооп через Steam:** `steamworks-sys` вендорит `libsteam_api.so`, но не копирует его рядом с итоговым бинарником — без дополнительного шага инициализация Steam в приложении падает с ошибкой (библиотека не найдена). Разово скопировать файл (или каждый раз задавать `LD_LIBRARY_PATH`) — см. [docs/netplay.md](docs/netplay.md#настройка-сборкиразработки):
-
-```bash
-find ~/.cargo/registry -name libsteam_api.so
-cp <найденный путь для вашей платформы> src-tauri/target/debug/
-```
+**Кооп через Steam:** `steamworks-sys` вендорит `libsteam_api.so`/`steam_api64.dll` — `src-tauri/build.rs` копирует его рядом с бинарником и настраивает поиск (`rpath`/установочный каталог) автоматически, как для dev-запуска, так и для готовых пакетов (`.deb`, AppImage, NSIS). Ничего копировать руками не нужно — см. [docs/netplay.md](docs/netplay.md#настройка-сборкиразработки).

@@ -160,21 +160,25 @@ LAN — фронтенд (`src/netplay/engine.ts`) транспорт не ра�
 
 ### Настройка сборки/разработки
 
-`steamworks-sys` вендорит `libsteam_api.so`, но копирует его только в
-`OUT_DIR` при сборке — рядом с итоговым бинарником его нет, и без
-дополнительного шага бинарник не запустится (`STATUS_DLL_NOT_FOUND`-подобная
-ошибка при попытке инициализировать Steam). Нужно (аналогично уже
-существующей заметке про `GDK_BACKEND=x11` на Hyprland — см. README.md):
+`steamworks-sys` вендорит `libsteam_api.so`/`steam_api64.dll`, но копирует
+его только в `OUT_DIR` при сборке — рядом с итоговым бинарником его нет, и
+без дополнительного шага бинарник не запустится (ошибка вида
+«библиотека не найдена» при попытке инициализировать Steam). Это решено
+автоматически — `src-tauri/build.rs` сам находит файл в `OUT_DIR`
+`steamworks-sys` и копирует его в `target/<profile>/` (и
+`target/<triple>/<profile>/` при кросс-компиляции) рядом с бинарником, плюс
+на Linux линкует бинарник с `-Wl,-rpath,$ORIGIN`, чтобы динамический линкер
+искал `.so` именно там. Ничего копировать руками не нужно — ни для `cargo
+run`/`tauri dev`, ни для `tauri build`.
 
-```bash
-find ~/.cargo/registry -name libsteam_api.so   # найти вендоренный файл
-cp <найденный путь для вашей платформы> src-tauri/target/debug/
-# либо на каждый запуск:
-LD_LIBRARY_PATH=src-tauri/target/debug npm run tauri dev
-```
-
-Для `tauri build`-бандла (чтобы конечным пользователям не нужно было ничего
-копировать руками) — отдельный follow-up, пока не сделан.
+Для готовых пакетов (`tauri build`) `.so`/`.dll` попадает в бандл через
+`bundle.linux.deb.files` / `bundle.linux.appimage.files` в
+`src-tauri/tauri.linux.conf.json` (кладёт `libsteam_api.so` прямо в
+`usr/bin/`, рядом с бинарником) и `bundle.resources` в
+`src-tauri/tauri.windows.conf.json` (кладёт `steam_api64.dll` рядом с `.exe`
+в каталог установки NSIS — стандартный путь поиска DLL в Windows).
+Проверено сборкой всех трёх инсталляторов (`.deb`, AppImage, NSIS `.exe`,
+включая кросс-компиляцию под Windows с Linux-хоста).
 
 ### Известное ограничение тестирования: self-connection
 

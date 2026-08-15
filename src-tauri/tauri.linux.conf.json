@@ -1,0 +1,16 @@
+{
+  "bundle": {
+    "linux": {
+      "deb": {
+        "files": {
+          "usr/bin/libsteam_api.so": "target/release/libsteam_api.so"
+        }
+      },
+      "appimage": {
+        "files": {
+          "usr/bin/libsteam_api.so": "target/release/libsteam_api.so"
+        }
+      }
+    }
+  }
+}
