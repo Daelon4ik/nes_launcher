@@ -2,6 +2,7 @@
 // скрытый по умолчанию и вызываемый по Tab (клавиатура) / LB (геймпад).
 // См. docs/screens.md#4-emulator-screen
 import { useEffect, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Browser } from "jsnes";
 import { launchGame, readRomBytes, recordSession } from "../../api/emulator";
 import { listSaveSlots, loadState, saveState, type SaveSlot } from "../../api/saves";
@@ -70,6 +71,7 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayView, setOverlayView] = useState<OverlayView>("menu");
   const [slots, setSlots] = useState<SaveSlot[] | null>(null);
@@ -268,19 +270,48 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
             document.addEventListener("keyup", onKeyUp);
             genesisKeyHandlersRef.current = { onKeyDown, onKeyUp };
 
+            // requestAnimationFrame тикает с частотой монитора (60/144/etc Гц), а
+            // Genesis рассчитан на фиксированные ~59.94/50 fps — раньше каждый тик
+            // rAF безусловно вызывал core.frame() один раз, поэтому на мониторах с
+            // отличной от genesis-fps частотой обновления эмуляция шла быстрее
+            // реального времени. Аудио копилось в очередь AudioContext (реальные
+            // секунды) и не могло "разгоняться" вместе с картинкой, которая
+            // рисовалась сразу на каждый вызов — от этого звук всё сильнее отставал
+            // от видео. Разводим шаг эмуляции и рендер: копим реальное прошедшее
+            // время в аккумулятор и шагаем core.frame() ровно столько раз, сколько
+            // требует genesis-fps, независимо от частоты rAF.
+            const frameDuration = 1 / core.fps;
+            const MAX_FRAMES_PER_TICK = 4; // защита от спирали смерти при фоновой вкладке/лагах
+            let lastTime = performance.now();
+            let accumulator = 0;
+
             function loop() {
-              if (!pausedRef.current) {
-                core.frame();
-                const frame = core.getFrameRgba();
-                if (frame) {
-                  if (canvas.width !== frame.width || canvas.height !== frame.height) {
-                    canvas.width = frame.width;
-                    canvas.height = frame.height;
-                    if (stageRef.current) fitScreenPixelPerfect(stageRef.current, frame.width, frame.height);
-                  }
-                  ctx2d!.putImageData(new ImageData(new Uint8ClampedArray(frame.rgba), frame.width, frame.height), 0, 0);
+              const now = performance.now();
+              if (pausedRef.current) {
+                lastTime = now; // не копим бэклог, пока на паузе
+              } else {
+                accumulator = Math.min(accumulator + (now - lastTime) / 1000, frameDuration * MAX_FRAMES_PER_TICK);
+                lastTime = now;
+
+                let framesRun = 0;
+                while (accumulator >= frameDuration && framesRun < MAX_FRAMES_PER_TICK) {
+                  core.frame();
+                  accumulator -= frameDuration;
+                  framesRun++;
                 }
-                playAudio(core.drainAudio());
+
+                if (framesRun > 0) {
+                  const frame = core.getFrameRgba();
+                  if (frame) {
+                    if (canvas.width !== frame.width || canvas.height !== frame.height) {
+                      canvas.width = frame.width;
+                      canvas.height = frame.height;
+                      if (stageRef.current) fitScreenPixelPerfect(stageRef.current, frame.width, frame.height);
+                    }
+                    ctx2d!.putImageData(new ImageData(new Uint8ClampedArray(frame.rgba), frame.width, frame.height), 0, 0);
+                  }
+                  playAudio(core.drainAudio());
+                }
               }
               genesisRafRef.current = requestAnimationFrame(loop);
             }
@@ -518,6 +549,23 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // Синхронизируем состояние кнопки/F11 с реальным состоянием ОС-окна: пользователь
+  // может выйти из полноэкранного режима средствами самой ОС (напр. Super+F в Hyprland),
+  // не через наш toggle.
+  useEffect(() => {
+    getCurrentWindow()
+      .isFullscreen()
+      .then(setIsFullscreen)
+      .catch(() => {});
+  }, []);
+
+  async function handleToggleFullscreen() {
+    const appWindow = getCurrentWindow();
+    const next = !(await appWindow.isFullscreen().catch(() => isFullscreen));
+    await appWindow.setFullscreen(next).catch(() => {});
+    setIsFullscreen(next);
+  }
+
   function handleExit() {
     const durationSeconds = Math.round((Date.now() - sessionStartedAt.current) / 1000);
     recordSession(game.id, durationSeconds).catch((err) =>
@@ -544,12 +592,23 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
       } else if (e.key === "Tab" && !overlayOpen) {
         e.preventDefault();
         setOverlayOpen(true);
+      } else if (e.key === "F11") {
+        e.preventDefault();
+        handleToggleFullscreen();
+      } else if ((e.ctrlKey || e.altKey) && ["1", "2", "3"].includes(e.key) && status === "playing" && !netplay) {
+        // Ctrl+1/2/3 — быстрое сохранение, Alt+1/2/3 — быстрая загрузка в тот же
+        // слот, что и в оверлее (Save state/Load state). Недоступно в netplay —
+        // как и одноимённые кнопки оверлея (см. handleSaveToSlot/handleLoadFromSlot).
+        e.preventDefault();
+        const slot = Number(e.key);
+        if (e.ctrlKey) handleSaveToSlot(slot);
+        else handleLoadFromSlot(slot);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayOpen, overlayView]);
+  }, [overlayOpen, overlayView, isFullscreen, status, netplay]);
 
   function handleTogglePause() {
     if (isGenesis) {
@@ -601,6 +660,14 @@ export function EmulatorScreen({ game, netplay, onExit }: EmulatorScreenProps) {
               title={netplay ? "Пауза недоступна в кооп-режиме" : undefined}
             >
               {paused ? "Продолжить" : "Пауза"}
+            </button>
+            <button
+              type="button"
+              data-nav
+              className={styles.overlayButton}
+              onClick={handleToggleFullscreen}
+            >
+              {isFullscreen ? "Выйти из полноэкранного режима" : "Full Screen"}
             </button>
             <button
               type="button"

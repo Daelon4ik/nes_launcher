@@ -1,4 +1,4 @@
-# NES Launcher
+# dlemu
 
 Десктопное приложение-лаунчер для игр NES: библиотека ROM'ов, загрузка метаданных и обложек, встроенный эмулятор и отслеживание прогресса игр.
 
@@ -44,7 +44,7 @@ nes_launhder/
 
 ### Windows
 
-1. Скачайте `NES Launcher_<версия>_x64-setup.exe` из [`build/`](build/).
+1. Скачайте `dlemu_<версия>_x64-setup.exe` из [`build/`](build/).
 2. Запустите файл и пройдите шаги установщика.
 3. Windows SmartScreen может предупредить о неизвестном издателе (установщик не подписан сертификатом) — выберите «Подробнее» → «Выполнить в любом случае».
 
@@ -62,6 +62,14 @@ sudo apt install ./build/NES\ Launcher_<версия>_amd64.deb
 chmod +x build/NES_Launcher-x86_64.AppImage
 ./build/NES_Launcher-x86_64.AppImage
 ```
+
+AppImage собирается с `bundle.linux.appimage.bundleMediaFramework: true` в
+`tauri.conf.json`, чтобы в пакет попадали и плагины GStreamer, а не только
+базовые библиотеки — иначе WebKitGTK не находит `appsink`/`appsrc`/
+`autoaudiosink` и т.п., и кооп через Steam падает с ошибкой
+`GStreamer element ... not found`. Для пересборки AppImage на Arch
+дополнительно нужен пакет `patchelf` (`sudo pacman -S patchelf`) — без него
+сборка плагина gstreamer в AppDir падает.
 
 ## Разработка
 

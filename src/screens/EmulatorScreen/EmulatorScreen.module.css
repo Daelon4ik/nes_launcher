@@ -1,6 +1,6 @@
 .screen {
   position: relative;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: #000;
   color: var(--color-text);

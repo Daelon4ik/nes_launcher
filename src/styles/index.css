@@ -85,6 +85,15 @@
   --color-accent-hover: #255BD1;
 }
 
+/* height:100% (не 100vh) во всей цепочке — WebKitGTK не всегда честно
+   пересчитывает vh-юниты при ресайзе/фуллскрине окна (см. .screen в
+   EmulatorScreen.module.css), а % пересчитывается вместе с layout родителя. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);

@@ -52,6 +52,7 @@ export class GenesisCore {
   width = 320;
   height = 224;
   sampleRate = 44100;
+  fps = 60;
 
   private constructor(mod: EmscriptenModule, state: CallbackState) {
     this.mod = mod;
@@ -112,6 +113,9 @@ export class GenesisCore {
     mod._retro_get_system_av_info(avInfoPtr);
     this.width = mod.getValue(avInfoPtr + 0, "i32");
     this.height = mod.getValue(avInfoPtr + 4, "i32");
+    // retro_system_timing идёт сразу после retro_game_geometry (20 байт), выровненная
+    // до 8 байт под double — отсюда паддинг в 4 байта перед fps/sample_rate.
+    this.fps = mod.getValue(avInfoPtr + 24, "double") || 60;
     this.sampleRate = mod.getValue(avInfoPtr + 32, "double") || 44100;
     mod._free(avInfoPtr);
 

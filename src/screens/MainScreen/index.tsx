@@ -178,7 +178,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
       <div className={styles.content}>
         <header className={styles.topBar}>
           <div className={styles.leftNav}>
-            <img src={logo} alt="NES Launcher" className={styles.logo} />
+            <img src={logo} alt="dlemu" className={styles.logo} />
             <nav className={styles.navTabs}>
               <span className={`${styles.navTab} ${styles.navTabActive}`}>
                 <Library size={24} />

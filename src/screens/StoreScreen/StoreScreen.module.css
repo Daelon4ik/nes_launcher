@@ -338,12 +338,6 @@ button.navTab:hover:not(:disabled) {
   font-size: var(--font-size-secondary);
 }
 
-.success {
-  margin: 0;
-  color: var(--color-success);
-  font-size: var(--font-size-secondary);
-}
-
 .hintFooter {
   flex-shrink: 0;
   display: flex;

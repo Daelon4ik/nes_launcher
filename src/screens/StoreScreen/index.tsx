@@ -61,7 +61,8 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
   const [installedMessage, setInstalledMessage] = useState<string | null>(null);
 
   const isSearching = query.trim().length > 0;
-  const anyModalOpen = selectedGame !== null || pendingInstall !== null || duplicateGame !== null;
+  const anyModalOpen =
+    selectedGame !== null || pendingInstall !== null || duplicateGame !== null || installedMessage !== null;
 
   useEffect(() => {
     getRomLibraryPaths()
@@ -194,11 +195,12 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
     storeInstall(selectedGame.slug, file.fid, selectedGame.title, platform, targetDir, replaceGameId)
       .then((updatedGames) => {
         setInstalledGames(updatedGames);
-        setInstalledMessage(
+        const message =
           replaceGameId !== null
             ? `«${selectedGame.title}» обновлена до выбранной версии`
-            : `«${selectedGame.title}» установлена в библиотеку`,
-        );
+            : `«${selectedGame.title}» установлена в библиотеку`;
+        closeGame();
+        setInstalledMessage(message);
       })
       .catch((err) => setInstallError(String(err)))
       .finally(() => setInstallingFid(null));
@@ -221,7 +223,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
       <div className={styles.content}>
         <header className={styles.topBar}>
           <div className={styles.leftNav}>
-            <img src={logo} alt="NES Launcher" className={styles.logo} />
+            <img src={logo} alt="dlemu" className={styles.logo} />
             <nav className={styles.navTabs}>
               <button
                 type="button"
@@ -311,7 +313,6 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
         )}
 
         <main className={styles.gridArea}>
-          {installedMessage && <p className={styles.success}>{installedMessage}</p>}
           {listError && <p className={styles.error}>{listError}</p>}
 
           {!listLoading && !listError && games.length === 0 && (
@@ -496,6 +497,25 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
                 }}
               >
                 Сменить версию
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {installedMessage && (
+        <div className={styles.modalBackdrop} onKeyDown={(e) => handleModalKeyDown(e, () => setInstalledMessage(null))}>
+          <div className={styles.modal} role="dialog" aria-modal="true">
+            <h2 className={styles.modalTitle}>Установка завершена</h2>
+            <p className={styles.modalText}>{installedMessage}</p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                data-nav
+                className={styles.ghostButton}
+                onClick={() => setInstalledMessage(null)}
+              >
+                Закрыть
               </button>
             </div>
           </div>

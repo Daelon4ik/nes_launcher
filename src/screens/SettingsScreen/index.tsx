@@ -57,7 +57,7 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
     <div className={styles.screen} ref={screenRef}>
       <header className={styles.topBar}>
         <div className={styles.leftNav}>
-          <img src={logo} alt="NES Launcher" className={styles.logo} />
+          <img src={logo} alt="dlemu" className={styles.logo} />
           <nav className={styles.navTabs}>
             <button
               type="button"
