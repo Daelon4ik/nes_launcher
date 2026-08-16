@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "target/x86_64-pc-windows-gnu/release/steam_api64.dll": "steam_api64.dll"
+      "target/release/steam_api64.dll": "steam_api64.dll"
     }
   }
 }

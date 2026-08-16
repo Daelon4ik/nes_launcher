@@ -53,14 +53,14 @@ nes_launhder/
 **Deb-пакет** (Debian, Ubuntu и производные):
 
 ```bash
-sudo apt install ./build/NES\ Launcher_<версия>_amd64.deb
+sudo apt install ./build/dlemu_<версия>_amd64.deb
 ```
 
 **AppImage** (любой дистрибутив):
 
 ```bash
-chmod +x build/NES_Launcher-x86_64.AppImage
-./build/NES_Launcher-x86_64.AppImage
+chmod +x build/dlemu-x86_64.AppImage
+./build/dlemu-x86_64.AppImage
 ```
 
 AppImage собирается с `bundle.linux.appimage.bundleMediaFramework: true` в
@@ -69,7 +69,9 @@ AppImage собирается с `bundle.linux.appimage.bundleMediaFramework: tr
 `autoaudiosink` и т.п., и кооп через Steam падает с ошибкой
 `GStreamer element ... not found`. Для пересборки AppImage на Arch
 дополнительно нужен пакет `patchelf` (`sudo pacman -S patchelf`) — без него
-сборка плагина gstreamer в AppDir падает.
+сборка плагина gstreamer в AppDir падает. Также бандленный в linuxdeploy
+`strip` не понимает секции `.relr.dyn` из свежего Arch-тулчейна и валит всю
+сборку AppImage — собирайте с `NO_STRIP=1 npm run tauri build`.
 
 ## Разработка
 
