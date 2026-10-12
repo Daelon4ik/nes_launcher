@@ -155,6 +155,20 @@ export class GenesisCore {
     return { width: frame.width, height: frame.height, rgba: framebufferToRgba(frame.width, frame.height, frame.pixels, frame.pitch, frame.format) };
   }
 
+  /** Размер последнего готового кадра (игра может переключать видеорежим на ходу) либо null. */
+  frameSize(): { width: number; height: number } | null {
+    const frame = this.state.lastFrame;
+    return frame ? { width: frame.width, height: frame.height } : null;
+  }
+
+  /** Как getFrameRgba(), но пишет в готовый буфер размера frameSize() (без аллокации на кадр). */
+  writeFrameRgba(dst: Uint8ClampedArray): boolean {
+    const frame = this.state.lastFrame;
+    if (!frame) return false;
+    framebufferToRgba(frame.width, frame.height, frame.pixels, frame.pitch, frame.format, dst);
+    return true;
+  }
+
   /** Забирает и очищает накопленные с прошлого вызова стерео-сэмплы (S16, interleaved). */
   drainAudio(): Int16Array {
     if (this.state.audioRing.length === 0) return new Int16Array(0);

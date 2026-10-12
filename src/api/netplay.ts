@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DiscoveredHost, PeerInfo } from "../types/netplay";
+import type { InputPacket } from "../netplay/lockstep";
 
 export function startHosting(
   port: number,
@@ -32,15 +33,15 @@ export function joinHost(
   return invoke("netplay_join_host", { ip, port, displayName, romChecksum });
 }
 
-// Вызывается из игрового цикла ~60 раз/сек (см. src/netplay/engine.ts) —
+// Вызывается из игрового цикла ~60 раз/сек (см. src/netplay/lockstep.ts) —
 // fire-and-forget: ждать ответ каждый кадр значило бы завязывать локальный
 // рендер на IPC round-trip. Ошибку (например, партнёр уже отключился) не
 // пробрасываем — сессия и так узнает об этом по netplay://peer-disconnected;
 // логируем в консоль, чтобы отправка, молча падающая каждый кадр, не
-// проходила совсем незамеченной (см. STALL_TIMEOUT_TICKS в netplay/engine.ts,
+// проходила совсем незамеченной (см. STALL_TIMEOUT_MS в netplay/lockstep.ts,
 // который тоже страхует от этого сценария, но с задержкой в несколько секунд).
-export function sendInput(frame: number, buttons: number): void {
-  invoke("netplay_send_input", { frame, buttons }).catch((err) => console.error("netplay_send_input:", err));
+export function sendInput(packet: InputPacket): void {
+  invoke("netplay_send_input", { packet }).catch((err) => console.error("netplay_send_input:", err));
 }
 
 export function disconnect(): Promise<void> {
@@ -66,8 +67,8 @@ export function steamJoin(peerSteamId: string, displayName: string, romChecksum:
 }
 
 // Как sendInput выше — fire-and-forget, вызывается из игрового цикла.
-export function steamSendInput(frame: number, buttons: number): void {
-  invoke("steam_send_input", { frame, buttons }).catch((err) => console.error("steam_send_input:", err));
+export function steamSendInput(packet: InputPacket): void {
+  invoke("steam_send_input", { packet }).catch((err) => console.error("steam_send_input:", err));
 }
 
 export function steamDisconnect(): Promise<void> {
@@ -90,10 +91,8 @@ export function onHostLost(cb: (hostId: string) => void): Promise<UnlistenFn> {
   return listen<string>("netplay://host-lost", (e) => cb(e.payload));
 }
 
-export function onRemoteInput(cb: (frame: number, buttons: number) => void): Promise<UnlistenFn> {
-  return listen<{ frame: number; buttons: number }>("netplay://remote-input", (e) =>
-    cb(e.payload.frame, e.payload.buttons),
-  );
+export function onRemoteInput(cb: (packet: InputPacket) => void): Promise<UnlistenFn> {
+  return listen<InputPacket>("netplay://remote-input", (e) => cb(e.payload));
 }
 
 export function onPeerDisconnected(cb: () => void): Promise<UnlistenFn> {

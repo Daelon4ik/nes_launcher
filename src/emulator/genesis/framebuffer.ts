@@ -4,8 +4,19 @@
 // romdev-core-host/framebuffer.js (MIT, https://github.com/monteslu/romdev).
 import { RETRO_PIXEL_FORMAT_0RGB1555, RETRO_PIXEL_FORMAT_RGB565, RETRO_PIXEL_FORMAT_XRGB8888 } from "./retroConstants";
 
-export function framebufferToRgba(width: number, height: number, src: Uint8Array, pitch: number, format: number): Uint8Array {
-  const dst = new Uint8Array(width * height * 4);
+// `dst` — готовый буфер width*height*4 (например, ImageData.data), чтобы не
+// аллоцировать ~280КБ на каждый кадр (кооп-движок рисует так каждый тик).
+export function framebufferToRgba(width: number, height: number, src: Uint8Array, pitch: number, format: number): Uint8Array;
+export function framebufferToRgba(width: number, height: number, src: Uint8Array, pitch: number, format: number, dst: Uint8ClampedArray): Uint8ClampedArray;
+export function framebufferToRgba(
+  width: number,
+  height: number,
+  src: Uint8Array,
+  pitch: number,
+  format: number,
+  out?: Uint8ClampedArray,
+): Uint8Array | Uint8ClampedArray {
+  const dst = out ?? new Uint8Array(width * height * 4);
 
   if (format === RETRO_PIXEL_FORMAT_XRGB8888) {
     for (let y = 0; y < height; y++) {

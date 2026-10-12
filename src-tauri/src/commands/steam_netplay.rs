@@ -1,7 +1,7 @@
 //! Tauri-команды второго транспорта кооп-сессии — P2P через Steam (см.
 //! src-tauri/src/netplay/steam.rs — вся реальная логика там, здесь только
 //! тонкие обёртки, извлекающие managed state). См. docs/netplay.md.
-use crate::netplay::{steam, PeerInfo, SteamNetplayState};
+use crate::netplay::{steam, InputPacket, PeerInfo, SteamNetplayState};
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
 
@@ -40,9 +40,11 @@ pub async fn steam_join(
     Ok(peer_info)
 }
 
+/// `async` — чтобы Tauri выполнял её на фоновом рантайме, а не на главном
+/// потоке, где крутится и сам webview (вызывается ~60 раз/сек).
 #[tauri::command]
-pub fn steam_send_input(state: State<'_, Mutex<SteamNetplayState>>, frame: u32, buttons: u8) -> Result<(), String> {
-    steam::send_input(&state, frame, buttons)
+pub async fn steam_send_input(state: State<'_, Mutex<SteamNetplayState>>, packet: InputPacket) -> Result<(), String> {
+    steam::send_input(&state, packet)
 }
 
 #[tauri::command]
