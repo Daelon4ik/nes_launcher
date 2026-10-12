@@ -80,14 +80,3 @@ declare module "jsnes/src/browser/screen.js" {
     destroy: () => void;
   }
 }
-
-declare module "jsnes/src/browser/speakers.js" {
-  export default class Speakers {
-    constructor(options: { onBufferUnderrun?: () => void });
-    getSampleRate: () => number;
-    start: () => Promise<void>;
-    stop: () => void;
-    writeSample: (left: number, right: number) => void;
-    flush: () => void;
-  }
-}

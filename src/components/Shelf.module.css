@@ -4,21 +4,30 @@
   gap: var(--space-2);
 }
 
+/* Заголовок полки — как надпись уровня в NES-игре: «▶ ВСЕ ИГРЫ» аркадным шрифтом */
 .title {
   margin: 0;
   padding: 0 var(--space-8);
   font-family: var(--font-title);
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   color: var(--color-text-secondary);
+}
+
+.title::before {
+  content: "▶ ";
+  color: var(--color-accent);
 }
 
 .row {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: calc((100% - var(--space-4) * 7) / 8);
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-8) var(--space-6);
+  grid-auto-columns: calc((100% - var(--space-6) * 7) / 8);
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8) var(--space-6);
   overflow-x: auto;
   overflow-y: visible;
   scroll-behavior: smooth;
@@ -37,6 +46,5 @@
 
 .tile {
   --space-2: 8px;
-  --font-size-card-title: 14px;
-  --radius-md: 8px;
+  --radius-md: 0;
 }

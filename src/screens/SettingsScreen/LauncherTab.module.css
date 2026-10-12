@@ -1,41 +1,43 @@
 .sectionTitle {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-body);
-  font-weight: 600;
+  margin: 0 0 var(--space-4);
+  font-size: 12px;
+  font-family: var(--font-title);
+  font-weight: 400;
+  text-transform: uppercase;
 }
 
 .options {
   display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
 }
 
 .option {
   height: 44px;
   padding: 0 var(--space-5);
-  border: 1px solid var(--color-border);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--color-panel);
   color: var(--color-text);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: border-color var(--duration-hover), box-shadow var(--duration-hover), background var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
 }
 
 .option:hover {
-  border-color: var(--color-accent);
+  background: var(--color-panel-hover);
 }
 
 .option:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
 }
 
 .optionActive {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .version {

@@ -17,17 +17,17 @@ import {
   DEFAULT_GENESIS_GAMEPAD_CONTROLS,
 } from "../../utils/genesisGamepad";
 import { describeGamepadSource, findNewlyPressedButton, findNewlyCrossedAxis } from "../../utils/gamepadInput";
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon } from "../../components/icons";
 import styles from "./EmulatorTab.module.css";
 
 const getGamepadIcon = (id: ActionName) => {
   switch (id) {
-    case "UP": return <div className={styles.dpadBtn}><ArrowUp size={16} /></div>;
-    case "DOWN": return <div className={styles.dpadBtn}><ArrowDown size={16} /></div>;
-    case "LEFT": return <div className={styles.dpadBtn}><ArrowLeft size={16} /></div>;
-    case "RIGHT": return <div className={styles.dpadBtn}><ArrowRight size={16} /></div>;
-    case "A": return <div className={styles.roundBtn} style={{ background: '#e74c3c' }}>A</div>;
-    case "B": return <div className={styles.roundBtn} style={{ background: '#f1c40f', color: '#000' }}>B</div>;
+    case "UP": return <div className={styles.dpadBtn}><ArrowUpIcon /></div>;
+    case "DOWN": return <div className={styles.dpadBtn}><ArrowDownIcon /></div>;
+    case "LEFT": return <div className={styles.dpadBtn}><ArrowLeftIcon /></div>;
+    case "RIGHT": return <div className={styles.dpadBtn}><ArrowRightIcon /></div>;
+    case "A": return <div className={styles.roundBtn} style={{ background: '#D82800' }}>A</div>;
+    case "B": return <div className={styles.roundBtn} style={{ background: '#F8B800', color: '#000' }}>B</div>;
     case "SELECT": return <div className={styles.pillBtn}>Sel</div>;
     case "START": return <div className={styles.pillBtn}>Start</div>;
     default: return null;
@@ -36,13 +36,13 @@ const getGamepadIcon = (id: ActionName) => {
 
 const getGenesisGamepadIcon = (id: GenesisActionName) => {
   switch (id) {
-    case "UP": return <div className={styles.dpadBtn}><ArrowUp size={16} /></div>;
-    case "DOWN": return <div className={styles.dpadBtn}><ArrowDown size={16} /></div>;
-    case "LEFT": return <div className={styles.dpadBtn}><ArrowLeft size={16} /></div>;
-    case "RIGHT": return <div className={styles.dpadBtn}><ArrowRight size={16} /></div>;
-    case "A": return <div className={styles.roundBtn} style={{ background: '#3b82f6' }}>A</div>;
-    case "B": return <div className={styles.roundBtn} style={{ background: '#f1c40f', color: '#000' }}>B</div>;
-    case "C": return <div className={styles.roundBtn} style={{ background: '#e74c3c' }}>C</div>;
+    case "UP": return <div className={styles.dpadBtn}><ArrowUpIcon /></div>;
+    case "DOWN": return <div className={styles.dpadBtn}><ArrowDownIcon /></div>;
+    case "LEFT": return <div className={styles.dpadBtn}><ArrowLeftIcon /></div>;
+    case "RIGHT": return <div className={styles.dpadBtn}><ArrowRightIcon /></div>;
+    case "A": return <div className={styles.roundBtn} style={{ background: '#0058F8' }}>A</div>;
+    case "B": return <div className={styles.roundBtn} style={{ background: '#F8B800', color: '#000' }}>B</div>;
+    case "C": return <div className={styles.roundBtn} style={{ background: '#D82800' }}>C</div>;
     case "START": return <div className={styles.pillBtn}>Start</div>;
     default: return null;
   }

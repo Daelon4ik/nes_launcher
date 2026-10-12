@@ -11,10 +11,11 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@fontsource/press-start-2p": "^5.3.0",
+    "@fontsource/tiny5": "^5.3.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "jsnes": "^2.1.0",
-    "lucide-react": "^1.28.0",
     "react": "^18",
     "react-dom": "^18",
     "romdev-core-gpgx": "^0.14.0"

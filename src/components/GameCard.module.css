@@ -1,24 +1,27 @@
+/* Карточка игры — «картридж» с толстой пиксельной рамкой и жёсткой тенью.
+   См. docs/design.md#компоненты */
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 2px solid transparent;
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #1B1D23;
-  color: #F2F2F4;
+  background: var(--color-panel);
+  color: var(--color-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
   outline: none;
-  transform: scale(1);
-  transition: background var(--duration-hover), border-color var(--duration-hover),
-    box-shadow var(--duration-hover), transform 150ms ease-out;
+  box-shadow: var(--shadow-pixel);
+  transform: translate(0, 0);
+  transition: transform var(--duration-transition) var(--ease-pixel);
 }
 
 .card:hover:not(:disabled) {
-  background: #22242C;
+  background: var(--color-panel-hover);
 }
 
 .card:disabled {
@@ -26,28 +29,46 @@
   cursor: default;
 }
 
-/* Фокус (клавиатура/геймпад) — он же выбор: крупный, читаемый с расстояния индикатор.
-   Лёгкое увеличение карточки — часть Big Picture стиля Main Screen, см. docs/design.md#анимации. */
+/* Фокус (клавиатура/геймпад) — он же выбор: карточка «приподнимается» на пару
+   пикселей, рамка и тень окрашиваются цветом фокуса, над ней прыгает стрелка ▼.
+   См. docs/design.md#управление-с-геймпада. */
 .selected {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
-  transform: scale(1.08);
+  border-color: var(--color-focus);
+  background: var(--color-panel-hover);
+  box-shadow: 8px 8px 0 0 var(--color-focus);
+  transform: translate(-4px, -4px);
+}
+
+.selected::before {
+  content: "▼";
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  color: var(--color-focus);
+  font-family: var(--font-title);
+  font-size: 12px;
+  line-height: 1;
+  animation: pixel-bob 600ms infinite;
+  pointer-events: none;
 }
 
 .cover {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 4;
+  border: 2px solid var(--color-shadow);
   border-radius: var(--radius-md);
-  background-color: #22242C;
+  background-color: var(--color-panel-hover);
   background-size: cover;
   background-position: center;
+  image-rendering: pixelated;
+  box-sizing: border-box;
 }
 
 .title {
-  font-family: var(--font-title);
+  font-family: var(--font-sans);
   font-size: var(--font-size-card-title);
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

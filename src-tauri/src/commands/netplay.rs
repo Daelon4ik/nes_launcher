@@ -1,4 +1,4 @@
-use crate::netplay::{discovery, session, NetplayMessage, NetplayState, PeerInfo};
+use crate::netplay::{discovery, session, InputPacket, NetplayMessage, NetplayState, PeerInfo};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::net::TcpListener;
@@ -97,16 +97,17 @@ pub async fn netplay_join_host(
     Ok(PeerInfo { display_name: peer_name })
 }
 
-/// Отправляет состояние кнопок за кадр партнёру. Вызывается ~60 раз/сек из
-/// игрового цикла (src/netplay/engine.ts) — синхронная и не блокирующая:
-/// просто кладёт сообщение в канал writer-задачи (netplay/session.rs).
+/// Отправляет пакет ввода партнёру. Вызывается ~60 раз/сек из игрового цикла
+/// (src/netplay/lockstep.ts) — не блокирующая: просто кладёт сообщение в
+/// канал writer-задачи (netplay/session.rs). `async` — чтобы Tauri выполнял её
+/// на фоновом рантайме, а не на главном потоке, где крутится и сам webview.
 #[tauri::command]
-pub fn netplay_send_input(state: State<'_, Mutex<NetplayState>>, frame: u32, buttons: u8) -> Result<(), String> {
+pub async fn netplay_send_input(state: State<'_, Mutex<NetplayState>>, packet: InputPacket) -> Result<(), String> {
     let guard = state.lock().map_err(|e| e.to_string())?;
     match &guard.session {
         Some(session) => session
             .outgoing_tx
-            .send(NetplayMessage::Input { frame, buttons })
+            .send(NetplayMessage::Inputs(packet))
             .map_err(|e| e.to_string()),
         None => Err("Нет активной кооп-сессии".to_string()),
     }

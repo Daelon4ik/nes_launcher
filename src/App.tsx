@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MainScreen } from "./screens/MainScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { EmulatorScreen } from "./screens/EmulatorScreen";
@@ -13,6 +13,12 @@ export function App() {
   const [screen, setScreen] = useState<Screen>("main");
   const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [netplaySession, setNetplaySession] = useState<NetplaySession | null>(null);
+
+  // Текущий экран — в атрибут body: по нему index.css выключает CRT-scanlines
+  // поверх картинки эмулятора.
+  useEffect(() => {
+    document.body.dataset.screen = screen;
+  }, [screen]);
 
   function returnToMain() {
     setScreen("main");

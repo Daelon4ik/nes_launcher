@@ -1,26 +1,30 @@
 // Кооп-движок: гоняет NES (jsnes) или Genesis (GenesisCore) напрямую (без
 // jsnes Browser — см. docs/netplay.md, у Browser нет хука для внедрения
 // синхронизированного ввода партнёра перед кадром) по лок-степ протоколу с
-// фиксированной задержкой ввода: расхождение исключено в принципе — оба пира
-// продвигаются только когда оба знают ввод друг друга за конкретный номер
-// кадра, иначе локально просто ждём (стойка). Буферизация/тайм-аут стойки —
-// платформо-агностичны (см. tick() ниже); платформенно-зависима только
-// инициализация движка и то, как конкретный кадр применяется/рендерится
-// (tickNes/tickGenesis) — то же ветвление isGenesis, что уже есть в
-// EmulatorScreen для одиночной игры, а не общий интерфейс движка (см.
+// задержкой ввода: расхождение исключено в принципе — кадр эмулируется только
+// когда известен ввод обоих игроков за него, иначе локально просто ждём.
+// Когда и сколько кадров прогонять, что и когда слать партнёру — решает
+// платформо-агностичный Lockstep (./lockstep.ts), звук с джиттер-буфером —
+// NetplayAudio (./audio.ts); здесь только то, что зависит от платформы:
+// инициализация ядра, применение ввода к кадру и вывод картинки (stepNes/
+// stepGenesis, presentNes/presentGenesis) — то же ветвление isGenesis, что уже
+// есть в EmulatorScreen для одиночной игры, а не общий интерфейс движка (см.
 // docs/platforms.md#netplay-кооп: два явных случая проще, чем абстракция
 // ради двух потребителей).
 import { NES } from "jsnes";
 import Screen from "jsnes/src/browser/screen.js";
-import Speakers from "jsnes/src/browser/speakers.js";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { onPeerDisconnected, onRemoteInput } from "../api/netplay";
 import { applyButtons, LocalInputReader } from "./localInput";
 import { decodeGenesisButtons, LocalGenesisInputReader } from "./genesisLocalInput";
 import { GenesisCore } from "../emulator/genesis/GenesisCore";
+import { Lockstep, type InputPacket } from "./lockstep";
+import { NetplayAudio } from "./audio";
 
 const NES_WIDTH = 256;
 const NES_HEIGHT = 240;
+// Нативная частота кадров NTSC NES — та же, что у jsnes FrameTimer в одиночной игре.
+const NES_FPS = 60.0988;
 // Реальные размеры кадра Genesis известны только после GenesisCore.create()+
 // loadRom() (асинхронно, WASM) — эти дефолты используются только как
 // провизорный размер до этого момента (см. width/height ниже, EmulatorScreen
@@ -28,28 +32,16 @@ const NES_HEIGHT = 240;
 const GENESIS_DEFAULT_WIDTH = 320;
 const GENESIS_DEFAULT_HEIGHT = 224;
 
-// ~100мс на 60кадр/с — с запасом перекрывает LAN RTT (обычно <5мс) и Tauri IPC
-// (тот же процесс, доли мс). Не настраивается пользователем — см. docs/netplay.md.
-const INPUT_DELAY_FRAMES = 6;
-
-// Сколько подряд тиков можно простоять без хода партнёра, прежде чем считать
-// сессию зависшей и явно сообщить об этом — без этого таймаута локальный рендер
-// просто замирает намертво и молча (лок-степ по конструкции не продвигается без
-// ввода партнёра, см. tick() ниже), что для пользователя неотличимо от чёрного
-// экрана/краша. 300 тиков ~5с при 60к/с — с большим запасом над LAN/Steam Relay
-// RTT в здоровой сети, но конечно, чтобы разрыв не проходил незамеченным.
-const STALL_TIMEOUT_TICKS = 300;
-
 export interface NetplayEngineOptions {
   container: HTMLElement;
   romData: Uint8Array;
   localPlayer: 1 | 2;
   platform: "nes" | "genesis";
   volume?: number;
-  // Отправка кадра ввода партнёру — единственное, что реально зависит от
+  // Отправка пакета ввода партнёру — единственное, что реально зависит от
   // транспорта (LAN/Steam, см. docs/netplay.md); движок сам транспорт не
   // знает, вызывающий код (EmulatorScreen) передаёт нужную функцию.
-  sendInput: (frame: number, buttons: number) => void;
+  sendInput: (packet: InputPacket) => void;
   onError?: (error: unknown) => void;
   onPeerDisconnected?: () => void;
   // Инициализация NES синхронна, но Genesis (WASM-ядро) — нет, поэтому момент
@@ -67,19 +59,19 @@ export class NetplayEngine {
 
   private nes?: NES;
   private screen?: Screen;
-  private speakers?: Speakers;
 
   private genesisCore?: GenesisCore;
   private genesisCanvas?: HTMLCanvasElement;
   private genesisCtx?: CanvasRenderingContext2D;
-  private genesisAudioCtx?: AudioContext;
-  private genesisGain?: GainNode;
-  private genesisNextAudioTime = 0;
+  private genesisImage?: ImageData;
+
+  private audio?: NetplayAudio;
+  private lockstep?: Lockstep;
 
   private readonly input: LocalInputReader | LocalGenesisInputReader;
   private readonly localPlayer: 1 | 2;
   private readonly remotePlayer: 1 | 2;
-  private readonly sendInputFn: (frame: number, buttons: number) => void;
+  private readonly sendInputFn: (packet: InputPacket) => void;
   private readonly onErrorCb?: (error: unknown) => void;
   private readonly onPeerDisconnectedCb?: () => void;
 
@@ -89,10 +81,6 @@ export class NetplayEngine {
   width: number;
   height: number;
 
-  private frameNo = 0;
-  private stalledTicks = 0;
-  private readonly localHistory = new Map<number, number>();
-  private readonly remoteHistory = new Map<number, number>();
   private rafId = 0;
   private destroyed = false;
   private unlistenInput: UnlistenFn | null = null;
@@ -118,19 +106,15 @@ export class NetplayEngine {
     this.height = NES_HEIGHT;
     this.input = new LocalInputReader();
 
-    this.speakers = new Speakers({ onBufferUnderrun: () => {} });
-
-    const volume = options.volume ?? 1.0;
-    const originalWriteSample = this.speakers.writeSample.bind(this.speakers);
-    this.speakers.writeSample = (l: number, r: number) => {
-      originalWriteSample(l * volume, r * volume);
-    };
-
+    // AudioContext создаётся синхронно в конструкторе NetplayAudio, так что его
+    // реальная частота известна до создания NES — jsnes генерирует звук сразу
+    // в ней (громкость — через GainNode внутри NetplayAudio).
+    this.audio = new NetplayAudio({ volume: options.volume ?? 1.0 });
     this.screen = new Screen(options.container);
     this.nes = new NES({
       onFrame: this.screen.setBuffer,
-      onAudioSample: this.speakers.writeSample,
-      sampleRate: this.speakers.getSampleRate(),
+      onAudioSample: this.audio.writeSample,
+      sampleRate: this.audio.sampleRate,
     });
 
     try {
@@ -141,10 +125,9 @@ export class NetplayEngine {
       return;
     }
 
-    void this.speakers.start();
     this.screen.fitInParent();
 
-    this.startNetworking();
+    this.startNetworking(NES_FPS);
     options.onReady?.({ width: this.width, height: this.height });
   }
 
@@ -173,37 +156,24 @@ export class NetplayEngine {
       this.genesisCanvas = canvas;
       this.genesisCtx = ctx;
 
-      const audioCtx = new AudioContext();
-      const gain = audioCtx.createGain();
-      gain.gain.value = options.volume ?? 1.0;
-      gain.connect(audioCtx.destination);
-      this.genesisAudioCtx = audioCtx;
-      this.genesisGain = gain;
-      this.genesisNextAudioTime = audioCtx.currentTime;
+      this.audio = new NetplayAudio({ volume: options.volume ?? 1.0, inputSampleRate: core.sampleRate });
     } catch (err) {
       this.onErrorCb?.(err);
       this.destroy();
       return;
     }
 
-    this.startNetworking();
+    this.startNetworking(this.genesisCore!.fps);
     options.onReady?.({ width: this.width, height: this.height });
   }
 
-  /** Общая для NES/Genesis часть: предзаполнение первых кадров (см. комментарий
-   *  внутри), подписка на события партнёра и старт rAF-цикла. */
-  private startNetworking(): void {
-    // Кадры 0..INPUT_DELAY_FRAMES-1 не покрыты обычной отправкой (та начинается
-    // только с sendFrame = frameNo + INPUT_DELAY_FRAMES, т.е. с кадра
-    // INPUT_DELAY_FRAMES) — без этого лок-степ ждал бы ввод для них вечно,
-    // так и не сдвинувшись с frameNo=0. Обе стороны детерминированно
-    // договариваются считать эти самые первые кадры "без нажатий".
-    for (let frame = 0; frame < INPUT_DELAY_FRAMES; frame++) {
-      this.localHistory.set(frame, 0);
-      this.remoteHistory.set(frame, 0);
-    }
+  /** Общая для NES/Genesis часть: подписка на события партнёра и старт rAF-цикла. */
+  private startNetworking(fps: number): void {
+    this.lockstep = new Lockstep({ fps, send: this.sendInputFn });
 
-    void onRemoteInput((frame, buttons) => this.remoteHistory.set(frame, buttons)).then((unlisten) => {
+    // Пакеты партнёра, пришедшие до того, как подписка успела зарегистрироваться,
+    // не теряются насовсем: он переотправляет всё неподтверждённое (см. lockstep.ts).
+    void onRemoteInput((packet) => this.lockstep?.receive(packet, performance.now())).then((unlisten) => {
       if (this.destroyed) unlisten();
       else this.unlistenInput = unlisten;
     });
@@ -215,101 +185,74 @@ export class NetplayEngine {
     this.rafId = requestAnimationFrame(this.tick);
   }
 
-  private tick = (): void => {
+  private tick = (time: number): void => {
     if (this.destroyed) return;
+    this.rafId = requestAnimationFrame(this.tick);
 
     try {
-      // Шлём свой ввод с опережением на INPUT_DELAY_FRAMES — к моменту, когда
-      // локальная эмуляция дойдёт до этого номера кадра, у партнёра уже будет
-      // время его получить и прислать свой встречный ввод для того же кадра.
-      const sendFrame = this.frameNo + INPUT_DELAY_FRAMES;
-      const localBits = this.input.read();
-      this.localHistory.set(sendFrame, localBits);
-      this.sendInputFn(sendFrame, localBits);
-
-      const remoteBits = this.remoteHistory.get(this.frameNo);
-      if (remoteBits === undefined) {
-        // Ввод партнёра для текущего кадра ещё не пришёл — не продвигаемся.
-        // Это и есть гарантия отсутствия рассинхрона: кадр не рендерится, пока
-        // обе стороны не знают точное состояние обоих контроллеров для него.
-        this.stalledTicks++;
-        if (this.stalledTicks >= STALL_TIMEOUT_TICKS) {
-          this.onErrorCb?.(new Error("Партнёр не отвечает — нет данных от сети. Проверьте соединение."));
-          this.destroy();
-          return;
-        }
-        this.rafId = requestAnimationFrame(this.tick);
+      const { stepped, timedOut } = this.lockstep!.tick(
+        time,
+        this.readInput,
+        this.isGenesis ? this.stepGenesis : this.stepNes,
+      );
+      if (timedOut) {
+        // Без этого таймаута локальный рендер при пропавшем партнёре просто
+        // замирал бы намертво и молча — неотличимо от чёрного экрана/краша.
+        this.onErrorCb?.(new Error("Партнёр не отвечает — нет данных от сети. Проверьте соединение."));
+        this.destroy();
         return;
       }
-      this.stalledTicks = 0;
-
-      const localBitsForFrame = this.localHistory.get(this.frameNo) ?? 0;
-      if (this.isGenesis) {
-        this.tickGenesis(localBitsForFrame, remoteBits);
-      } else {
-        this.tickNes(localBitsForFrame, remoteBits);
+      // Картинку и звук отдаём раз за тик, даже если прогнано несколько кадров
+      // (догоняем после стойки) — показывать промежуточные кадры всё равно некогда.
+      if (stepped > 0) {
+        if (this.isGenesis) this.presentGenesis();
+        else this.presentNes();
       }
-
-      this.localHistory.delete(this.frameNo);
-      this.remoteHistory.delete(this.frameNo);
-      this.frameNo++;
     } catch (err) {
       this.onErrorCb?.(err);
       this.destroy();
-      return;
     }
-
-    this.rafId = requestAnimationFrame(this.tick);
   };
 
-  private tickNes(localBits: number, remoteBits: number): void {
+  private readInput = (): number => this.input.read();
+
+  private stepNes = (localBits: number, remoteBits: number): void => {
     const nes = this.nes!;
     applyButtons(nes, this.localPlayer, localBits);
     applyButtons(nes, this.remotePlayer, remoteBits);
     nes.frame();
+  };
+
+  private presentNes(): void {
     this.screen!.writeBuffer();
-    this.speakers!.flush();
+    this.audio!.flush();
   }
 
-  private tickGenesis(localBits: number, remoteBits: number): void {
+  private stepGenesis = (localBits: number, remoteBits: number): void => {
     const core = this.genesisCore!;
-    const localPort = (this.localPlayer - 1) as 0 | 1;
-    const remotePort = (this.remotePlayer - 1) as 0 | 1;
-    core.setInput(localPort, decodeGenesisButtons(localBits));
-    core.setInput(remotePort, decodeGenesisButtons(remoteBits));
-
+    core.setInput((this.localPlayer - 1) as 0 | 1, decodeGenesisButtons(localBits));
+    core.setInput((this.remotePlayer - 1) as 0 | 1, decodeGenesisButtons(remoteBits));
     core.frame();
-    const frame = core.getFrameRgba();
-    if (frame) {
-      const canvas = this.genesisCanvas!;
-      if (canvas.width !== frame.width || canvas.height !== frame.height) {
-        canvas.width = frame.width;
-        canvas.height = frame.height;
-        this.width = frame.width;
-        this.height = frame.height;
-      }
-      this.genesisCtx!.putImageData(new ImageData(new Uint8ClampedArray(frame.rgba), frame.width, frame.height), 0, 0);
-    }
-    this.playGenesisAudio(core.drainAudio());
-  }
+  };
 
-  private playGenesisAudio(samples: Int16Array): void {
-    const frames = samples.length / 2;
-    if (frames === 0) return;
-    const audioCtx = this.genesisAudioCtx!;
-    const buffer = audioCtx.createBuffer(2, frames, this.genesisCore!.sampleRate);
-    const left = buffer.getChannelData(0);
-    const right = buffer.getChannelData(1);
-    for (let i = 0; i < frames; i++) {
-      left[i] = samples[i * 2] / 32768;
-      right[i] = samples[i * 2 + 1] / 32768;
+  private presentGenesis(): void {
+    const core = this.genesisCore!;
+    const size = core.frameSize();
+    if (size) {
+      // ImageData переиспользуется между кадрами — без пары аллокаций по
+      // ~280КБ на каждый кадр, из-за которых сборщик мусора давал паузы.
+      if (!this.genesisImage || this.genesisImage.width !== size.width || this.genesisImage.height !== size.height) {
+        this.genesisImage = new ImageData(size.width, size.height);
+        this.genesisCanvas!.width = size.width;
+        this.genesisCanvas!.height = size.height;
+        this.width = size.width;
+        this.height = size.height;
+      }
+      core.writeFrameRgba(this.genesisImage.data);
+      this.genesisCtx!.putImageData(this.genesisImage, 0, 0);
     }
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.genesisGain!);
-    const startAt = Math.max(audioCtx.currentTime, this.genesisNextAudioTime);
-    source.start(startAt);
-    this.genesisNextAudioTime = startAt + buffer.duration;
+    this.audio!.writeS16(core.drainAudio());
+    this.audio!.flush();
   }
 
   destroy(): void {
@@ -319,11 +262,10 @@ export class NetplayEngine {
     this.input.destroy();
     this.unlistenInput?.();
     this.unlistenDisconnect?.();
+    this.audio?.destroy();
     if (this.isGenesis) {
       this.genesisCore?.destroy();
-      this.genesisAudioCtx?.close().catch(() => {});
     } else {
-      this.speakers?.stop();
       this.screen?.destroy();
     }
   }

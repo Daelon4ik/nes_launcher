@@ -11,7 +11,9 @@
 //! Даёт NAT traversal через Steam Relay — в отличие от LAN, работает через
 //! интернет, а не только в одной сети. Матчмейкинга/лобби нет: игроки вручную
 //! обмениваются Steam ID (см. Netplay Lobby Screen, вкладка «Через Steam»).
-use super::{NetplayMessage, PeerInfo, SteamNetplayState};
+use super::session::{handshake_ack_result, handshake_rejection};
+use super::{InputPacket, NetplayMessage, PeerInfo, SteamNetplayState, SteamPump, PROTOCOL_VERSION};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use steamworks::networking_types::{NetworkingIdentity, SendFlags};
@@ -20,10 +22,24 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub const STEAM_APP_ID: u32 = 480;
 
-/// ~120 опросов/сек — с запасом выше кадровой частоты эмулятора (60к/с), чтобы
-/// опрос колбэков/сообщений не становился узким местом задержки ввода.
+/// Опрос, пока ждём рукопожатия, — тут задержка в несколько мс не важна.
 const POLL_INTERVAL: Duration = Duration::from_millis(8);
+/// Опрос во время игры: каждый мс ожидания здесь — прямая добавка к задержке
+/// пакета ввода (а разброс — к джиттеру), поэтому ~1000 раз/сек; сами
+/// вызовы дешёвые (пустая очередь — доли микросекунды).
+const RELAY_POLL_INTERVAL: Duration = Duration::from_millis(1);
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Служебные сообщения (рукопожатие, Disconnect) — гарантированно и без
+/// Nagle: по умолчанию SteamNetworkingSockets копит мелкие сообщения до ~5 мс,
+/// чтобы склеить их в один пакет.
+const CONTROL_SEND: SendFlags = SendFlags::RELIABLE_NO_NAGLE;
+/// Пакеты ввода — НЕнадёжно и без Nagle: каждый несёт все ещё не
+/// подтверждённые партнёром кадры (см. InputPacket), так что потеря одного
+/// закрывается следующим через кадр. У reliable потеря означала бы ожидание
+/// ретрансмита (≈ RTT) с блокировкой всех следующих сообщений — то есть
+/// стойку обеих сторон на каждый потерянный пакет.
+const INPUT_SEND: SendFlags = SendFlags::UNRELIABLE_NO_NAGLE;
 
 /// Инициализирует Steam-клиента при первом использовании (не при старте
 /// приложения — не все пользователи используют кооп через Steam) и кэширует
@@ -83,65 +99,60 @@ pub fn start_hosting(
     install_callbacks(&app, &client);
 
     let mut guard = state.lock().map_err(|e| e.to_string())?;
-    guard.clear_session(); // повторный вызов не должен плодить задачи
-    guard.pump_task = Some(tauri::async_runtime::spawn(run_host(
-        app,
-        client,
-        display_name,
-        rom_checksum,
-    )));
+    guard.clear_session(); // повторный вызов не должен плодить потоки
+    guard.pump = Some(SteamPump::spawn(move |stop| run_host(app, client, display_name, rom_checksum, &stop))?);
     Ok(())
 }
 
-async fn run_host(app: AppHandle, client: Client, own_display_name: String, expected_checksum: String) {
+fn run_host(app: AppHandle, client: Client, own_display_name: String, expected_checksum: String, stop: &AtomicBool) {
     let messages = client.networking_messages();
 
-    let peer = loop {
+    let peer = 'wait: loop {
+        if stop.load(Ordering::Relaxed) {
+            return;
+        }
         client.run_callbacks();
 
-        let mut accepted: Option<SteamId> = None;
         for message in messages.receive_messages_on_channel(0, 32) {
             let Some(peer_id) = message.identity_peer().steam_id() else { continue };
-            let Ok(NetplayMessage::Handshake { display_name, rom_checksum }) =
+            let Ok(NetplayMessage::Handshake { display_name, rom_checksum, protocol }) =
                 serde_json::from_slice::<NetplayMessage>(message.data())
             else {
                 continue;
             };
 
-            let ok = rom_checksum == expected_checksum;
+            let reason = handshake_rejection(protocol, &rom_checksum, &expected_checksum);
+            let ok = reason.is_none();
             let ack = NetplayMessage::HandshakeAck {
                 display_name: own_display_name.clone(),
                 ok,
-                reason: if ok { None } else { Some("ROM не совпадает у хоста и клиента".to_string()) },
+                reason,
+                protocol: PROTOCOL_VERSION,
             };
             if let Ok(data) = serde_json::to_vec(&ack) {
-                let _ = messages.send_message_to_user(
-                    NetworkingIdentity::new_steam_id(peer_id),
-                    SendFlags::RELIABLE,
-                    &data,
-                    0,
-                );
+                let _ = messages.send_message_to_user(NetworkingIdentity::new_steam_id(peer_id), CONTROL_SEND, &data, 0);
             }
 
             if ok {
-                if let Some(steam_state) = app.try_state::<Mutex<SteamNetplayState>>() {
-                    if let Ok(mut guard) = steam_state.lock() {
-                        guard.peer = Some(peer_id);
-                    }
+                let Some(steam_state) = app.try_state::<Mutex<SteamNetplayState>>() else { return };
+                let Ok(mut guard) = steam_state.lock() else { return };
+                // Флаг проверяется под тем же мьютексом, под которым его
+                // выставляет clear_session: остановленный хостинг не должен
+                // записать «своего» партнёра в уже новую/закрытую сессию.
+                if stop.load(Ordering::Relaxed) {
+                    return;
                 }
+                guard.peer = Some(peer_id);
+                drop(guard);
                 let _ = app.emit("netplay://client-connected", PeerInfo { display_name });
-                accepted = Some(peer_id);
-                break;
+                break 'wait peer_id;
             }
         }
 
-        if let Some(peer_id) = accepted {
-            break peer_id;
-        }
-        tokio::time::sleep(POLL_INTERVAL).await;
+        std::thread::sleep(POLL_INTERVAL);
     };
 
-    relay_loop(&app, &client, peer).await;
+    relay_loop(&app, &client, peer, stop);
 }
 
 /// Подключается к хосту: шлёт Handshake на указанный SteamID и ждёт
@@ -156,10 +167,10 @@ pub async fn join(
     rom_checksum: String,
 ) -> Result<PeerInfo, String> {
     let messages = client.networking_messages();
-    let handshake = NetplayMessage::Handshake { display_name: own_display_name, rom_checksum };
+    let handshake = NetplayMessage::Handshake { display_name: own_display_name, rom_checksum, protocol: PROTOCOL_VERSION };
     let data = serde_json::to_vec(&handshake).map_err(|e| e.to_string())?;
     messages
-        .send_message_to_user(NetworkingIdentity::new_steam_id(peer), SendFlags::RELIABLE, &data, 0)
+        .send_message_to_user(NetworkingIdentity::new_steam_id(peer), CONTROL_SEND, &data, 0)
         .map_err(|e| format!("Не удалось отправить рукопожатие: {e:?}"))?;
 
     let deadline = tokio::time::Instant::now() + HANDSHAKE_TIMEOUT;
@@ -170,13 +181,11 @@ pub async fn join(
             if message.identity_peer().steam_id() != Some(peer) {
                 continue;
             }
-            if let Ok(NetplayMessage::HandshakeAck { display_name, ok, reason }) =
+            if let Ok(NetplayMessage::HandshakeAck { display_name, ok, reason, protocol }) =
                 serde_json::from_slice::<NetplayMessage>(message.data())
             {
-                if ok {
-                    return Ok(PeerInfo { display_name });
-                }
-                return Err(reason.unwrap_or_else(|| "Хост отклонил подключение".to_string()));
+                let display_name = handshake_ack_result(display_name, ok, reason, protocol)?;
+                return Ok(PeerInfo { display_name });
             }
         }
 
@@ -188,26 +197,23 @@ pub async fn join(
 }
 
 /// Ретрансляция ввода партнёра в Tauri-события после установленной сессии —
-/// общая для хоста и клиента (запускается фоновой задачей у обоих после
-/// успешного рукопожатия). Завершается сама, когда партнёр явно прислал
-/// Disconnect; при обрыве сессии без явного сообщения — см.
+/// общая для хоста и клиента (крутится в фоновом потоке у обоих после
+/// успешного рукопожатия). Завершается по флагу остановки или когда партнёр
+/// явно прислал Disconnect; при обрыве сессии без явного сообщения — см.
 /// session_failed_callback в install_callbacks (эмитит то же событие
 /// независимо от этого цикла).
-async fn relay_loop(app: &AppHandle, client: &Client, peer: SteamId) {
+fn relay_loop(app: &AppHandle, client: &Client, peer: SteamId, stop: &AtomicBool) {
     let messages = client.networking_messages();
-    loop {
+    while !stop.load(Ordering::Relaxed) {
         client.run_callbacks();
 
-        for message in messages.receive_messages_on_channel(0, 32) {
+        for message in messages.receive_messages_on_channel(0, 64) {
             if message.identity_peer().steam_id() != Some(peer) {
                 continue;
             }
             match serde_json::from_slice::<NetplayMessage>(message.data()) {
-                Ok(NetplayMessage::Input { frame, buttons }) => {
-                    let _ = app.emit(
-                        "netplay://remote-input",
-                        serde_json::json!({ "frame": frame, "buttons": buttons }),
-                    );
+                Ok(NetplayMessage::Inputs(packet)) => {
+                    let _ = app.emit("netplay://remote-input", packet);
                 }
                 Ok(NetplayMessage::Disconnect) => {
                     let _ = app.emit("netplay://peer-disconnected", ());
@@ -217,20 +223,18 @@ async fn relay_loop(app: &AppHandle, client: &Client, peer: SteamId) {
             }
         }
 
-        tokio::time::sleep(POLL_INTERVAL).await;
+        std::thread::sleep(RELAY_POLL_INTERVAL);
     }
 }
 
-/// Спавнит фоновую задачу ретрансляции для уже установленной (после join)
+/// Запускает фоновый поток ретрансляции для уже установленной (после join)
 /// сессии — вызывается из commands::steam_netplay после успешного
-/// рукопожатия, тем же способом, что и хостинг регистрирует свою задачу.
+/// рукопожатия, тем же способом, что и хостинг регистрирует свой поток.
 pub fn spawn_relay(app: AppHandle, state: &Mutex<SteamNetplayState>, client: Client, peer: SteamId) -> Result<(), String> {
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     guard.clear_session();
+    guard.pump = Some(SteamPump::spawn(move |stop| relay_loop(&app, &client, peer, &stop))?);
     guard.peer = Some(peer);
-    guard.pump_task = Some(tauri::async_runtime::spawn(async move {
-        relay_loop(&app, &client, peer).await;
-    }));
     Ok(())
 }
 
@@ -242,7 +246,7 @@ pub fn disconnect(state: &Mutex<SteamNetplayState>) -> Result<(), String> {
         if let Ok(data) = serde_json::to_vec(&NetplayMessage::Disconnect) {
             let _ = client.networking_messages().send_message_to_user(
                 NetworkingIdentity::new_steam_id(peer),
-                SendFlags::RELIABLE,
+                CONTROL_SEND,
                 &data,
                 0,
             );
@@ -252,18 +256,18 @@ pub fn disconnect(state: &Mutex<SteamNetplayState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Отправляет состояние кнопок за кадр партнёру — вызывается ~60 раз/сек из
-/// игрового цикла (см. src/netplay/engine.ts), не блокирующий вызов
-/// (send_message_to_user не ждёт подтверждения доставки).
-pub fn send_input(state: &Mutex<SteamNetplayState>, frame: u32, buttons: u8) -> Result<(), String> {
+/// Отправляет пакет ввода партнёру — вызывается ~60 раз/сек из игрового
+/// цикла (см. src/netplay/lockstep.ts), не блокирующий вызов
+/// (send_message_to_user не ждёт доставки).
+pub fn send_input(state: &Mutex<SteamNetplayState>, packet: InputPacket) -> Result<(), String> {
     let guard = state.lock().map_err(|e| e.to_string())?;
     let (Some(client), Some(peer)) = (&guard.client, guard.peer) else {
         return Err("Нет активной Steam-сессии".to_string());
     };
-    let data = serde_json::to_vec(&NetplayMessage::Input { frame, buttons }).map_err(|e| e.to_string())?;
+    let data = serde_json::to_vec(&NetplayMessage::Inputs(packet)).map_err(|e| e.to_string())?;
     client
         .networking_messages()
-        .send_message_to_user(NetworkingIdentity::new_steam_id(peer), SendFlags::RELIABLE, &data, 0)
+        .send_message_to_user(NetworkingIdentity::new_steam_id(peer), INPUT_SEND, &data, 0)
         .map_err(|e| format!("{e:?}"))
 }
 

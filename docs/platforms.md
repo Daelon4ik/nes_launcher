@@ -263,13 +263,15 @@ Screen» выше) — два явных ветвления внутри одн�
 (потребителей всего два, преждевременная абстракция не нужна). NES-ветка не изменилась
 (создаёт `NES` напрямую, см. [netplay.md](netplay.md#почему-нельзя-переиспользовать-jsnes-browser));
 Genesis-ветка (`initGenesis`) — асинхронный аналог: `GenesisCore.create()` грузит WASM-ядро,
-затем `loadRom`, свой `<canvas>` + `AudioContext`/`GainNode` вместо `jsnes`-`Screen`/`Speakers`.
+затем `loadRom`, свой `<canvas>` вместо `jsnes`-`Screen`. Звук у обеих платформ в кооп-режиме —
+общий `NetplayAudio` (`src/netplay/audio.ts`, джиттер-буфер + ресемплинг, см.
+[netplay.md](netplay.md#звук-джиттер-буфер)).
 Поскольку инициализация Genesis асинхронна (в отличие от синхронной NES), у движка есть
 колбэк `onReady` — момент, когда размер кадра уже известен и можно подогнать канву
 (`EmulatorScreen` раньше вызывал `fitScreenPixelPerfect` сразу после `new NetplayEngine`,
 теперь — внутри `onReady`, единообразно для обеих платформ).
 
-Протокол не менялся: `NetplayMessage::Input.buttons` остаётся 1 байтом — Genesis-раскладка
+Ввод за кадр — 1 байт (элемент `InputPacket.buttons`) для обеих платформ — Genesis-раскладка
 (D-pad + A/B/C/Start = 8 экшенов) укладывается в те же 8 бит, что и NES-контроллер, просто с
 другим порядком бит и другой семантикой (см. `src/netplay/genesisLocalInput.ts` —
 `LocalGenesisInputReader`/`decodeGenesisButtons`, аналог `localInput.ts` для NES; порядок бит
@@ -279,7 +281,7 @@ Genesis-ветка (`initGenesis`) — асинхронный аналог: `Gen
 одиночной игре (Settings Screen → «Эмулятор» → Genesis), только раскладки обоих игроков
 объединены в одну плоскую карту (в netplay-сессии локально играет только один игрок), тот
 же приём, что у `getNetplayKeyMap`/`getNetplayGamepadMap` для NES. Rust-сторона (протокол,
-чек-сумма, транспорты LAN/Steam) не менялась вообще — она уже была платформо-агностичной.
+чек-сумма, транспорты LAN/Steam) платформо-агностична — Genesis её не затрагивает.
 
 ## Итоговый чек-лист (для roadmap)
 
@@ -303,5 +305,5 @@ Genesis-ветка (`initGenesis`) — асинхронный аналог: `Gen
       (`find_game_url`) — `GENESIS_SECTION_ID` уже существует в `store/scraper.rs`,
       нужно сделать доступным для `metadata/scraper.rs` и добавить туда выбор по платформе
 - [x] Кооп-нетплей для Genesis — `NetplayEngine` диспетчеризует NES/Genesis по `platform`
-      (`src/netplay/engine.ts`, `genesisLocalInput.ts`); формат `Input.buttons` не менялся,
-      8 экшенов Genesis укладываются в тот же 1 байт, что и NES
+      (`src/netplay/engine.ts`, `genesisLocalInput.ts`); ввод за кадр — 1 байт в
+      `InputPacket.buttons`, 8 экшенов Genesis укладываются в тот же 1 байт, что и NES

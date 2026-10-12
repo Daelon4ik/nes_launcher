@@ -1,4 +1,4 @@
-use super::{NetplayMessage, SessionHandle};
+use super::{NetplayMessage, SessionHandle, PROTOCOL_VERSION, VERSION_MISMATCH};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -37,15 +37,17 @@ pub async fn accept_and_handshake(
         let mut reader = BufReader::new(read_half);
 
         let handshake = read_message(&mut reader).await;
-        let Ok(Some(NetplayMessage::Handshake { display_name, rom_checksum })) = handshake else {
+        let Ok(Some(NetplayMessage::Handshake { display_name, rom_checksum, protocol })) = handshake else {
             continue;
         };
 
-        let ok = rom_checksum == expected_checksum;
+        let reason = handshake_rejection(protocol, &rom_checksum, expected_checksum);
+        let ok = reason.is_none();
         let ack = NetplayMessage::HandshakeAck {
             display_name: own_display_name.to_string(),
             ok,
-            reason: if ok { None } else { Some("ROM не совпадает у хоста и клиента".to_string()) },
+            reason,
+            protocol: PROTOCOL_VERSION,
         };
         if write_message(&mut write_half, &ack).await.is_err() {
             continue;
@@ -62,6 +64,29 @@ pub async fn accept_and_handshake(
     }
 }
 
+/// Почему хост отклоняет рукопожатие (None — принимает). Общая для LAN и Steam.
+pub fn handshake_rejection(protocol: u32, rom_checksum: &str, expected_checksum: &str) -> Option<String> {
+    if protocol != PROTOCOL_VERSION {
+        Some(VERSION_MISMATCH.to_string())
+    } else if rom_checksum != expected_checksum {
+        Some("ROM не совпадает у хоста и клиента".to_string())
+    } else {
+        None
+    }
+}
+
+/// Ответ хоста на рукопожатие глазами клиента: Ok(имя хоста) или причина отказа.
+/// Общая для LAN и Steam.
+pub fn handshake_ack_result(display_name: String, ok: bool, reason: Option<String>, protocol: u32) -> Result<String, String> {
+    if !ok {
+        return Err(reason.unwrap_or_else(|| "Хост отклонил подключение".to_string()));
+    }
+    if protocol != PROTOCOL_VERSION {
+        return Err(VERSION_MISMATCH.to_string());
+    }
+    Ok(display_name)
+}
+
 /// Подключается к хосту и проводит рукопожатие со стороны клиента.
 pub async fn connect_and_handshake(
     ip: &str,
@@ -76,19 +101,18 @@ pub async fn connect_and_handshake(
     let handshake = NetplayMessage::Handshake {
         display_name: own_display_name.to_string(),
         rom_checksum: rom_checksum.to_string(),
+        protocol: PROTOCOL_VERSION,
     };
     write_message(&mut write_half, &handshake).await.map_err(|e| e.to_string())?;
 
     match read_message(&mut reader).await.map_err(|e| e.to_string())? {
-        Some(NetplayMessage::HandshakeAck { display_name, ok: true, .. }) => {
+        Some(NetplayMessage::HandshakeAck { display_name, ok, reason, protocol }) => {
+            let display_name = handshake_ack_result(display_name, ok, reason, protocol)?;
             let stream = reader
                 .into_inner()
                 .reunite(write_half)
                 .expect("половины принадлежат одному TcpStream");
             Ok((stream, display_name))
-        }
-        Some(NetplayMessage::HandshakeAck { ok: false, reason, .. }) => {
-            Err(reason.unwrap_or_else(|| "Хост отклонил подключение".to_string()))
         }
         _ => Err("Хост не ответил рукопожатием".to_string()),
     }
@@ -99,6 +123,9 @@ pub async fn connect_and_handshake(
 /// при разрыве связи — второй стороне (UI) не нужно отдельно опрашивать
 /// состояние соединения.
 pub fn spawn_session(app: AppHandle, stream: TcpStream) -> SessionHandle {
+    // Без TCP_NODELAY крошечные пакеты ввода (по одному на кадр) Nagle
+    // придерживает до подтверждения предыдущего — лишняя задержка и джиттер.
+    let _ = stream.set_nodelay(true);
     let (read_half, write_half) = stream.into_split();
     let (outgoing_tx, outgoing_rx) = mpsc::unbounded_channel();
 
@@ -119,8 +146,8 @@ async fn run_writer(mut writer: OwnedWriteHalf, mut rx: mpsc::UnboundedReceiver<
 async fn run_reader(app: AppHandle, mut reader: BufReader<OwnedReadHalf>) {
     loop {
         match read_message(&mut reader).await {
-            Ok(Some(NetplayMessage::Input { frame, buttons })) => {
-                let _ = app.emit("netplay://remote-input", serde_json::json!({ "frame": frame, "buttons": buttons }));
+            Ok(Some(NetplayMessage::Inputs(packet))) => {
+                let _ = app.emit("netplay://remote-input", packet);
             }
             Ok(Some(NetplayMessage::Disconnect)) | Ok(None) => break,
             Ok(Some(_)) => {} // Handshake/-Ack тут не ожидаются вне рукопожатия — игнорируем
@@ -159,6 +186,36 @@ mod tests {
 
         let (_host_stream, peer_name_seen_by_host) = host_task.await.unwrap();
         assert_eq!(peer_name_seen_by_host, "Client");
+    }
+
+    #[test]
+    fn rejects_peer_with_other_protocol_version() {
+        // Handshake старой версии лаунчера — без поля protocol вовсе.
+        let old: NetplayMessage =
+            serde_json::from_str(r#"{"type":"Handshake","display_name":"Old","rom_checksum":"abc"}"#).unwrap();
+        let NetplayMessage::Handshake { protocol, .. } = old else { panic!("ожидался Handshake") };
+        assert_eq!(protocol, 0);
+        assert_eq!(handshake_rejection(protocol, "abc", "abc").as_deref(), Some(VERSION_MISMATCH));
+        assert!(handshake_rejection(PROTOCOL_VERSION, "abc", "abc").is_none());
+        assert!(handshake_rejection(PROTOCOL_VERSION, "abc", "other").is_some());
+
+        // Клиент новой версии против хоста старой: тот ответил ok без protocol.
+        assert_eq!(handshake_ack_result("Host".into(), true, None, 0).unwrap_err(), VERSION_MISMATCH);
+        // Причина отказа хоста важнее несовпадения версий.
+        assert_eq!(handshake_ack_result("Host".into(), false, Some("ROM".into()), 0).unwrap_err(), "ROM");
+        assert_eq!(handshake_ack_result("Host".into(), true, None, PROTOCOL_VERSION).unwrap(), "Host");
+    }
+
+    #[test]
+    fn input_packet_wire_format_matches_frontend() {
+        // Те же поля, что у InputPacket в src/netplay/lockstep.ts.
+        let msg: NetplayMessage =
+            serde_json::from_str(r#"{"type":"Inputs","first":6,"buttons":[0,1,255],"ack":9,"margin":2.5}"#).unwrap();
+        let NetplayMessage::Inputs(packet) = msg else { panic!("ожидался Inputs") };
+        assert_eq!((packet.first, packet.buttons.as_slice(), packet.ack, packet.margin), (6, &[0u8, 1, 255][..], 9, 2.5));
+
+        let event = serde_json::to_value(&packet).unwrap();
+        assert_eq!(event, serde_json::json!({ "first": 6, "buttons": [0, 1, 255], "ack": 9, "margin": 2.5 }));
     }
 
     #[tokio::test]

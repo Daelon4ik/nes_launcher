@@ -1,7 +1,7 @@
 // Экран настроек: библиотека, метаданные, эмулятор, лаунчер.
 // См. docs/screens.md#2-settings-screen
 import { useEffect, useRef, useState } from "react";
-import { Library, Settings, Store } from "lucide-react";
+import { GearIcon, LibraryIcon, StoreIcon } from "../../components/icons";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getTheme, setTheme as persistTheme } from "../../api/settings";
 import type { Theme } from "../../types/settings";
@@ -65,7 +65,7 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
               className={styles.navTab}
               onClick={onBack}
             >
-              <Library size={24} />
+              <LibraryIcon />
               Библиотека
             </button>
             <button
@@ -74,11 +74,11 @@ export function SettingsScreen({ onBack, onOpenStore }: SettingsScreenProps) {
               className={styles.navTab}
               onClick={onOpenStore}
             >
-              <Store size={24} />
+              <StoreIcon />
               Магазин
             </button>
             <span className={`${styles.navTab} ${styles.navTabActive}`}>
-              <Settings size={24} />
+              <GearIcon />
               Настройки
             </span>
           </nav>
