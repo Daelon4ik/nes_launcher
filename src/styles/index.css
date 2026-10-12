@@ -1,60 +1,97 @@
-/* Палитра, типографика и токены — см. docs/design.md */
+/* Палитра, типографика и токены — см. docs/design.md (ретро 8-bit / NES стиль) */
 
 :root {
   color-scheme: light;
 
-  /* Цвета — светлая тема (значение по умолчанию) */
-  --color-bg: #F7F7F9;
-  --color-panel: #FFFFFF;
-  --color-panel-hover: #F0F1F5;
-  --color-border: #E3E4E8;
-  --color-text: #17181C;
-  --color-text-secondary: #6B6D78;
-  --color-accent: #2F6BEF;
-  --color-accent-hover: #255BD1;
-  --color-success: #3DBE72;
-  --color-error: #E15554;
+  /* Цвета — светлая тема «Famicom» (значение по умолчанию): кремовый корпус
+     консоли, чёрные пиксельные контуры, NES-синий акцент. Все цвета — из
+     палитры NES (2C02), без полутонов вне неё. */
+  --color-bg: #FCE0A8;
+  --color-panel: #FCFCFC;
+  --color-panel-hover: #F8D878;
+  --color-border: #000000;
+  --color-text: #000000;
+  --color-text-secondary: #7C4C1C;
+  --color-accent: #0058F8;
+  --color-accent-hover: #0000BC;
+  --color-on-accent: #FCFCFC;
+  --color-focus: #D82800;
+  --color-star: #E45C10;
+  --color-success: #00A800;
+  --color-error: #D82800;
+  --color-shadow: #000000;
+  --color-scanline: rgba(0, 0, 0, 0.06);
 
-  /* Типографика */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
-  --font-title: "PB Pixel", var(--font-sans);
+  /* Типографика: заголовки — Press Start 2P (классический 8×8 шрифт аркад),
+     остальной текст — Tiny5 (пиксельный, но читаемый в плотных списках).
+     Оба с кириллицей, подключаются локально через @fontsource (офлайн-первое приложение).
+     У обоих только одно начертание — жирность не синтезируется (font-synthesis: none
+     на body), иначе браузер «размазывает» пиксели фальшивым bold'ом. */
+  --font-sans: "Tiny5", ui-monospace, monospace;
+  --font-mono: "Tiny5", ui-monospace, monospace;
+  --font-title: "Press Start 2P", var(--font-sans);
 
-  --font-size-title: 20px;
-  --font-size-card-title: 14px;
-  --font-size-body: 14px;
-  --font-size-secondary: 12px;
-  --line-height-body: 1.5;
+  --font-size-title: 18px;
+  --font-size-card-title: 16px;
+  --font-size-body: 18px;
+  --font-size-secondary: 16px;
+  --line-height-body: 1.4;
 
-  /* Форма и сетка */
-  --radius-md: 8px;
-  --radius-sm: 4px;
+  /* Форма: никаких скруглений, толстые пиксельные рамки, жёсткие тени без размытия */
+  --radius-md: 0;
+  --radius-sm: 0;
+  --border-w: 3px;
+  --pixel: 4px;
+
+  --shadow-pixel: var(--pixel) var(--pixel) 0 0 var(--color-shadow);
+  --shadow-window: 8px 8px 0 0 var(--color-shadow);
+  /* Фокус — квадратная двойная рамка (цвет фона + цвет фокуса), читается с дивана */
+  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 7px var(--color-focus);
+  --focus-ring-error: 0 0 0 3px var(--color-bg), 0 0 0 7px var(--color-error);
 
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
 
-  /* Анимации */
-  --duration-transition: 150ms;
-  --duration-hover: 100ms;
+  /* Анимации — короткие и «ступенчатые», как смена кадров на 8-битной консоли */
+  --duration-transition: 120ms;
+  --duration-hover: 0ms;
+  --ease-pixel: steps(3, end);
+
+  /* Устаревшие имена токенов, которые использует EmulatorTab.module.css */
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --accent-color: var(--color-accent);
+  --bg-surface: var(--color-panel);
+  --bg-hover: var(--color-panel-hover);
+  --border-color: var(--color-border);
 }
 
-/* Тёмная тема по системным настройкам, пока пользователь не выбрал явную тему */
+/* Тёмная тема «NES night»: почти чёрный фон с синим отливом, окна в духе
+   RPG-меню (тёмно-синие панели с белой рамкой), золотой «монетный» акцент. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;
 
-    --color-bg: #121317;
-    --color-panel: #1B1D23;
-    --color-panel-hover: #22242C;
-    --color-border: #2A2C34;
-    --color-text: #F2F2F4;
-    --color-text-secondary: #9A9CA6;
-    --color-accent: #3D7EFF;
-    --color-accent-hover: #5A93FF;
+    --color-bg: #0C0C24;
+    --color-panel: #14144C;
+    --color-panel-hover: #24248C;
+    --color-border: #BCBCFC;
+    --color-text: #FCFCFC;
+    --color-text-secondary: #A4A4E4;
+    --color-accent: #F8B800;
+    --color-accent-hover: #FCE0A8;
+    --color-on-accent: #000000;
+    --color-focus: #F8B800;
+    --color-star: #F8B800;
+    --color-success: #58D854;
+    --color-error: #F85838;
+    --color-shadow: #000000;
+    --color-scanline: rgba(0, 0, 0, 0.22);
   }
 }
 
@@ -62,27 +99,41 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg: #121317;
-  --color-panel: #1B1D23;
-  --color-panel-hover: #22242C;
-  --color-border: #2A2C34;
-  --color-text: #F2F2F4;
-  --color-text-secondary: #9A9CA6;
-  --color-accent: #3D7EFF;
-  --color-accent-hover: #5A93FF;
+  --color-bg: #0C0C24;
+  --color-panel: #14144C;
+  --color-panel-hover: #24248C;
+  --color-border: #BCBCFC;
+  --color-text: #FCFCFC;
+  --color-text-secondary: #A4A4E4;
+  --color-accent: #F8B800;
+  --color-accent-hover: #FCE0A8;
+  --color-on-accent: #000000;
+  --color-focus: #F8B800;
+  --color-star: #F8B800;
+  --color-success: #58D854;
+  --color-error: #F85838;
+  --color-shadow: #000000;
+  --color-scanline: rgba(0, 0, 0, 0.22);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --color-bg: #F7F7F9;
-  --color-panel: #FFFFFF;
-  --color-panel-hover: #F0F1F5;
-  --color-border: #E3E4E8;
-  --color-text: #17181C;
-  --color-text-secondary: #6B6D78;
-  --color-accent: #2F6BEF;
-  --color-accent-hover: #255BD1;
+  --color-bg: #FCE0A8;
+  --color-panel: #FCFCFC;
+  --color-panel-hover: #F8D878;
+  --color-border: #000000;
+  --color-text: #000000;
+  --color-text-secondary: #7C4C1C;
+  --color-accent: #0058F8;
+  --color-accent-hover: #0000BC;
+  --color-on-accent: #FCFCFC;
+  --color-focus: #D82800;
+  --color-star: #E45C10;
+  --color-success: #00A800;
+  --color-error: #D82800;
+  --color-shadow: #000000;
+  --color-scanline: rgba(0, 0, 0, 0.06);
 }
 
 /* height:100% (не 100vh) во всей цепочке — WebKitGTK не всегда честно
@@ -102,4 +153,136 @@ body {
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
   transition: background var(--duration-transition), color var(--duration-transition);
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  text-rendering: optimizeSpeed;
+}
+
+/* Кнопки, поля и селекты по умолчанию не наследуют шрифт — без этого половина
+   интерфейса осталась бы на системном шрифте посреди пиксельного. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+img {
+  image-rendering: pixelated;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* «Нажатие» кнопки — сдвиг на пиксель вниз-вправо, как у физической кнопки геймпада */
+button:active:not(:disabled) {
+  translate: 2px 2px;
+}
+
+/* Квадратный пиксельный скроллбар */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-secondary) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-secondary);
+  border: 3px solid var(--color-bg);
+}
+
+/* CRT-scanlines поверх всего интерфейса. На экране эмулятора выключены
+   (body[data-screen="emulator"], см. App.tsx) — там картинка игры должна
+   оставаться пиксель-в-пиксель. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    var(--color-scanline) 2px,
+    var(--color-scanline) 4px
+  );
+}
+
+body[data-screen="emulator"]::after {
+  display: none;
+}
+
+/* Мигающий курсор-указатель «▶» — как в меню NES-игр */
+@keyframes pixel-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Подпрыгивающая стрелка над выбранной карточкой — два кадра, без плавности */
+@keyframes pixel-bob {
+  0%, 49% { transform: translate(-50%, 0); }
+  50%, 100% { transform: translate(-50%, -4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+  }
+}
+
+/* Пиксельный ползунок (громкость в EmulatorTab): квадратный «бегунок» на рамке-дорожке */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 12px;
+  border: var(--border-w) solid var(--color-border);
+  background: var(--color-panel-hover);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 24px;
+  margin-top: -9px;
+  border: var(--border-w) solid var(--color-border);
+  background: var(--color-accent);
+  box-shadow: 2px 2px 0 0 var(--color-shadow);
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  background: var(--color-focus);
+  box-shadow: var(--focus-ring);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border: var(--border-w) solid var(--color-border);
+  background: var(--color-panel-hover);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 18px;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-accent);
 }

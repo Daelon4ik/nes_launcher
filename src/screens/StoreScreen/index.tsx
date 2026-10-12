@@ -2,7 +2,7 @@
 // См. docs/screens.md#5-store-screen и docs/store.md
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Gamepad2, Library, Settings, Store } from "lucide-react";
+import { GamepadIcon, GearIcon, LibraryIcon, StoreIcon } from "../../components/icons";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import { getRomLibraryPaths } from "../../api/settings";
@@ -232,11 +232,11 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
                 onClick={onBack}
                 disabled={anyModalOpen}
               >
-                <Library size={24} />
+                <LibraryIcon />
                 Библиотека
               </button>
               <span className={`${styles.navTab} ${styles.navTabActive}`}>
-                <Store size={24} />
+                <StoreIcon />
                 Магазин
               </span>
               <button
@@ -246,7 +246,7 @@ export function StoreScreen({ onBack, onOpenSettings }: StoreScreenProps) {
                 onClick={onOpenSettings}
                 disabled={anyModalOpen}
               >
-                <Settings size={24} />
+                <GearIcon />
                 Настройки
               </button>
             </nav>
@@ -557,7 +557,7 @@ function StoreGameTile({ game, disabled, onOpen }: StoreGameTileProps) {
         {coverPath ? (
           <img src={coverImageSrc(coverPath)} alt="" className={styles.tileCoverImage} />
         ) : (
-          <Gamepad2 size={32} strokeWidth={1.5} />
+          <GamepadIcon size={48} />
         )}
       </span>
       <span className={styles.tileTitle}>{game.title}</span>

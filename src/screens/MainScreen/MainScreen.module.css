@@ -13,84 +13,39 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Фолбэк для игр без обложки — шахматный «дизеринг» в цветах темы */
+  background:
+    repeating-conic-gradient(var(--color-panel) 0 25%, var(--color-bg) 0 50%) 0 0 / 8px 8px;
 }
 
+/* Пиксельная мозаика обложки (PixelBackdrop): canvas ~96px шириной, растянутый
+   на весь экран без сглаживания. */
 .heroBackdrop {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--color-panel), var(--color-panel-hover));
-  background-size: cover;
-  background-position: center;
-  filter: blur(8px) saturate(1.3) contrast(1.1);
-  transform: scale(1.05);
-  transition: opacity 150ms ease;
-  animation: crtPulse 5s infinite alternate;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transition: opacity 150ms var(--ease-pixel);
 }
 
-.heroBackdrop::before,
-.heroBackdrop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: var(--bg-image);
-  background-size: cover;
-  background-position: center;
-  mix-blend-mode: screen;
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.heroBackdrop::before {
-  transform: translateX(-3px);
-  filter: brightness(0.8) sepia(1) hue-rotate(-50deg) saturate(3);
-  animation: glitch-anim-1 3s infinite linear alternate-reverse;
-}
-
-.heroBackdrop::after {
-  transform: translateX(3px);
-  filter: brightness(0.8) sepia(1) hue-rotate(150deg) saturate(3);
-  animation: glitch-anim-2 2.5s infinite linear alternate-reverse;
-}
-
-@keyframes glitch-anim-1 {
-  0% { clip-path: inset(20% 0 80% 0); transform: translateX(-3px); }
-  20% { clip-path: inset(60% 0 10% 0); transform: translateX(3px); }
-  40% { clip-path: inset(40% 0 50% 0); transform: translateX(-3px); }
-  60% { clip-path: inset(80% 0 5% 0); transform: translateX(3px); }
-  80% { clip-path: inset(10% 0 70% 0); transform: translateX(-3px); }
-  100% { clip-path: inset(30% 0 50% 0); transform: translateX(3px); }
-}
-
-@keyframes glitch-anim-2 {
-  0% { clip-path: inset(10% 0 60% 0); transform: translateX(3px); }
-  20% { clip-path: inset(80% 0 5% 0); transform: translateX(-3px); }
-  40% { clip-path: inset(30% 0 20% 0); transform: translateX(3px); }
-  60% { clip-path: inset(70% 0 15% 0); transform: translateX(-3px); }
-  80% { clip-path: inset(5% 0 80% 0); transform: translateX(3px); }
-  100% { clip-path: inset(50% 0 30% 0); transform: translateX(-3px); }
-}
-
-@keyframes crtPulse {
-  0% { filter: blur(8px) saturate(1.3) contrast(1.1) brightness(1); }
-  50% { filter: blur(9px) saturate(1.4) contrast(1.15) brightness(0.95); }
-  100% { filter: blur(8px) saturate(1.3) contrast(1.1) brightness(1); }
-}
-
+/* Скрим — ступенчатые полосы вместо плавного градиента (банding как на 8-битной
+   палитре) + сетка 2×2 «дизеринга» поверх, чтобы текст читался на любой обложке. */
 .heroScrim {
   position: absolute;
   inset: 0;
-  background: 
-    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
-    radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.8) 100%),
+  background:
     linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-bg) 92%, transparent) 0%,
-      color-mix(in srgb, var(--color-bg) 55%, transparent) 20%,
-      color-mix(in srgb, var(--color-bg) 45%, transparent) 34%,
-      color-mix(in srgb, var(--color-bg) 88%, transparent) 58%,
-      var(--color-bg) 100%
-    );
-  background-size: 100% 4px, 100% 100%, 100% 100%;
+      color-mix(in srgb, var(--color-bg) 88%, transparent) 0 16%,
+      color-mix(in srgb, var(--color-bg) 62%, transparent) 16% 22%,
+      color-mix(in srgb, var(--color-bg) 36%, transparent) 22% 40%,
+      color-mix(in srgb, var(--color-bg) 62%, transparent) 40% 46%,
+      color-mix(in srgb, var(--color-bg) 88%, transparent) 46% 52%,
+      var(--color-bg) 52% 100%
+    ),
+    repeating-conic-gradient(color-mix(in srgb, var(--color-shadow) 25%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
   pointer-events: none;
 }
 
@@ -121,28 +76,30 @@
 .logo {
   height: 48px;
   object-fit: contain;
+  image-rendering: pixelated;
 }
 
 .navTabs {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-8);
 }
 
 .navTab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) 0 var(--space-2);
   border: none;
-  border-bottom: 3px solid transparent;
+  border-bottom: var(--pixel) solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 600;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
   outline: none;
-  transition: color var(--duration-hover), border-color var(--duration-hover);
 }
 
 button.navTab {
@@ -153,9 +110,20 @@ button.navTab:hover:not(:disabled) {
   color: var(--color-text);
 }
 
+/* Фокус — мигающий курсор «▶» слева, как в меню NES-игр */
 .navTab:focus-visible {
-  color: var(--color-text);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  color: var(--color-focus);
+}
+
+.navTab:focus-visible::before {
+  content: "▶";
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  transform: translateY(-60%);
+  font-size: 10px;
+  color: var(--color-focus);
+  animation: pixel-blink 800ms infinite;
 }
 
 .navTab:disabled {
@@ -171,7 +139,7 @@ button.navTab:hover:not(:disabled) {
 .headerControls {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 /* Переключатель платформы (NES/Genesis) — тот же паттерн, что у переключателя платформы
@@ -183,27 +151,28 @@ button.navTab:hover:not(:disabled) {
 
 .platformButton {
   min-width: 32px;
-  height: 36px;
+  height: 40px;
   padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  background: var(--color-panel);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-secondary);
-  font-weight: 600;
+  font-family: var(--font-title);
+  font-size: 10px;
+  text-transform: uppercase;
   cursor: pointer;
   outline: none;
-  transition: color var(--duration-hover), border-color var(--duration-hover), background var(--duration-hover), box-shadow var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
 }
 
 .platformButton:hover:not(:disabled) {
-  border-color: var(--color-accent);
   color: var(--color-text);
+  background: var(--color-panel-hover);
 }
 
 .platformButton:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
 }
 
 .platformButton:disabled {
@@ -212,31 +181,35 @@ button.navTab:hover:not(:disabled) {
 }
 
 .platformButtonActive {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.platformButtonActive:hover:not(:disabled) {
+  color: var(--color-on-accent);
+  background: var(--color-accent-hover);
 }
 
 .filterSelect {
-  height: 36px;
+  height: 40px;
   padding: 0 var(--space-2) 0 var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-panel);
   color: var(--color-text);
   font-size: var(--font-size-secondary);
   cursor: pointer;
   outline: none;
-  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
 }
 
 .filterSelect:hover:not(:disabled) {
-  border-color: var(--color-accent);
+  background: var(--color-panel-hover);
 }
 
 .filterSelect:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
 }
 
 .filterSelect:disabled {
@@ -245,25 +218,25 @@ button.navTab:hover:not(:disabled) {
 }
 
 .ghostButton {
-  height: 36px;
+  height: 40px;
   padding: 0 var(--space-4);
-  border: 1px solid var(--color-border);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--color-panel);
   color: var(--color-text);
-  font-size: var(--font-size-secondary);
+  font-size: var(--font-size-body);
   cursor: pointer;
   outline: none;
-  transition: border-color var(--duration-hover), box-shadow var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
 }
 
 .ghostButton:hover:not(:disabled) {
-  border-color: var(--color-accent);
+  background: var(--color-panel-hover);
 }
 
 .ghostButton:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
 }
 
 .ghostButton:disabled {
@@ -277,114 +250,110 @@ button.navTab:hover:not(:disabled) {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-8) var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8) var(--space-6);
   margin-top: var(--space-2);
 }
 
 .heroTitle {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 36px;
-  font-weight: 700;
-  text-shadow: 0 2px 12px color-mix(in srgb, var(--color-bg) 60%, transparent);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.3;
+  text-transform: uppercase;
+  text-shadow: 4px 4px 0 var(--color-bg);
 }
 
+/* Метаинформация — пиксельные «таблички» вместо строки серого текста */
 .heroMeta {
   display: flex;
-  gap: var(--space-4);
-  font-size: 16px;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--font-size-body);
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--color-text);
+}
+
+.heroMeta > span {
+  padding: 2px var(--space-2);
+  border: 2px solid var(--color-border);
+  background: var(--color-panel);
 }
 
 .heroActions {
   display: flex;
   justify-content: flex-start;
   width: 100%;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.playButton {
+/* Общий вид кнопок действий в герое: толстая рамка + жёсткая тень,
+   при нажатии кнопка «вдавливается» (см. button:active в index.css). */
+.playButton,
+.coopButton,
+.infoButton,
+.deleteButton,
+.favoriteButton {
   flex: 1;
-  max-width: 160px;
+  max-width: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
-  padding: 0 var(--space-6);
-  border: 4px solid transparent;
+  height: 48px;
+  padding: 0 var(--space-4);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-title);
+  font-size: 11px;
+  text-transform: uppercase;
   cursor: pointer;
   outline: none;
-  transition: background var(--duration-hover), box-shadow var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
+}
+
+.playButton:disabled,
+.coopButton:disabled,
+.infoButton:disabled,
+.deleteButton:disabled,
+.favoriteButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.playButton:focus-visible,
+.coopButton:focus-visible,
+.infoButton:focus-visible,
+.favoriteButton:focus-visible {
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
+}
+
+/* «Играть» — главная кнопка: залита акцентом, с мигающим «▶» */
+.playButton {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.playButton::before {
+  content: "▶";
+  margin-right: var(--space-2);
+  animation: pixel-blink 1s infinite;
 }
 
 .playButton:hover:not(:disabled) {
   background: var(--color-accent-hover);
 }
 
-.playButton:focus-visible {
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-.playButton:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .coopButton {
-  flex: 1;
-  max-width: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
-  padding: 0 var(--space-5);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
   color: var(--color-accent);
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
-  transition: background var(--duration-hover), box-shadow var(--duration-hover);
 }
 
-.coopButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-.coopButton:focus-visible {
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-.coopButton:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.deleteButton {
-  flex: 1;
-  max-width: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
-  padding: 0 var(--space-5);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-  color: var(--color-text);
-  font-size: 16px;
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
+.coopButton:hover:not(:disabled),
+.infoButton:hover:not(:disabled) {
+  background: var(--color-panel-hover);
 }
 
 .deleteButton:hover:not(:disabled) {
@@ -394,81 +363,21 @@ button.navTab:hover:not(:disabled) {
 
 .deleteButton:focus-visible {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 25%, transparent);
-}
-
-.deleteButton:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.infoButton {
-  flex: 1;
-  max-width: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
-  padding: 0 var(--space-5);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-  color: var(--color-text);
-  font-size: 16px;
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
-}
-
-.infoButton:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.infoButton:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-.infoButton:disabled {
-  opacity: 0.6;
-  cursor: default;
+  color: var(--color-error);
+  box-shadow: var(--focus-ring-error);
 }
 
 .favoriteButton {
-  flex: 0 0 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
+  flex: 0 0 48px;
   padding: 0;
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-  color: var(--color-text);
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--duration-hover), color var(--duration-hover), box-shadow var(--duration-hover);
 }
 
 .favoriteButton:hover:not(:disabled) {
-  border-color: #ffc94d;
-  color: #ffc94d;
-}
-
-.favoriteButton:focus-visible {
-  border-color: #ffc94d;
-  box-shadow: 0 0 0 4px color-mix(in srgb, #ffc94d 25%, transparent);
-}
-
-.favoriteButton:disabled {
-  opacity: 0.6;
-  cursor: default;
+  color: var(--color-star);
 }
 
 .favoriteActive {
-  border-color: #ffc94d;
-  color: #ffc94d;
+  color: var(--color-star);
 }
 
 .shelves {
@@ -480,18 +389,19 @@ button.navTab:hover:not(:disabled) {
   padding-bottom: var(--space-4);
   overflow-y: auto;
   background: var(--color-bg);
+  border-top: var(--pixel) solid var(--color-border);
 }
 
 .empty {
   margin: 0;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-8);
   color: var(--color-text-secondary);
   font-size: var(--font-size-body);
 }
 
 .error {
   margin: 0;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-8);
   color: var(--color-error);
   font-size: var(--font-size-secondary);
 }
@@ -504,7 +414,7 @@ button.navTab:hover:not(:disabled) {
   height: 48px;
   padding: 0 var(--space-8);
   background: var(--color-panel);
-  border-top: 1px solid var(--color-border);
+  border-top: var(--pixel) solid var(--color-border);
 }
 
 .hint {
@@ -512,10 +422,11 @@ button.navTab:hover:not(:disabled) {
   align-items: center;
   gap: var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-secondary);
   font-weight: 500;
 }
 
+/* Бейдж кнопки геймпада — квадратная «клавиша» с жёсткой тенью */
 .hintBadge {
   display: inline-flex;
   align-items: center;
@@ -523,14 +434,16 @@ button.navTab:hover:not(:disabled) {
   min-width: 24px;
   height: 24px;
   padding: 0 var(--space-1);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-panel-hover);
-  color: var(--color-accent);
-  font-size: 12px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 13px;
   font-weight: 700;
+  box-shadow: 2px 2px 0 0 var(--color-shadow);
 }
 
+/* Подложка модалки — шахматный «дизеринг» вместо полупрозрачного затемнения */
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -538,27 +451,30 @@ button.navTab:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, #000 55%, transparent);
+  background: repeating-conic-gradient(rgba(0, 0, 0, 0.75) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
 }
 
+/* Окно в духе диалогов NES-RPG: двойная рамка (рамка + полоса цвета панели) и жёсткая тень */
 .modal {
-  width: 400px;
-  max-width: calc(100vw - var(--space-6) * 2);
+  width: 440px;
+  max-width: calc(100vw - var(--space-8) * 2);
   padding: var(--space-6);
+  border: var(--pixel) solid var(--color-text);
   border-radius: var(--radius-md);
   background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 16px 48px color-mix(in srgb, #000 35%, transparent);
+  box-shadow: 0 0 0 var(--pixel) var(--color-panel), 12px 12px 0 var(--pixel) var(--color-shadow);
 }
 
 .modalTitle {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-title);
-  font-weight: 600;
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 .modalText {
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-6);
   color: var(--color-text-secondary);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
@@ -567,29 +483,29 @@ button.navTab:hover:not(:disabled) {
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .confirmDeleteButton {
-  height: 36px;
+  height: 40px;
   padding: 0 var(--space-4);
-  border: 2px solid transparent;
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-error);
-  color: #fff;
-  font-size: var(--font-size-secondary);
-  font-weight: 500;
+  color: #FCFCFC;
+  font-size: var(--font-size-body);
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: background var(--duration-hover), box-shadow var(--duration-hover);
+  box-shadow: var(--shadow-pixel);
 }
 
 .confirmDeleteButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-error) 85%, black);
+  background: color-mix(in srgb, var(--color-error) 80%, black);
 }
 
 .confirmDeleteButton:focus-visible {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 35%, transparent);
+  box-shadow: var(--focus-ring-error);
 }
 
 .confirmDeleteButton:disabled {

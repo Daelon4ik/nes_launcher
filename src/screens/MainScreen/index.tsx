@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Shelf } from "../../components/Shelf";
-import { Library, Settings, Star, Store } from "lucide-react";
+import { PixelBackdrop } from "../../components/PixelBackdrop";
+import { GearIcon, LibraryIcon, StarIcon, StoreIcon } from "../../components/icons";
 import { useGameLibrary } from "../../hooks/useGameLibrary";
 import { useSpatialNavigation } from "../../hooks/useSpatialNavigation";
 import type { Game } from "../../types/game";
-import { coverImageStyle, coverImageSrc } from "../../utils/coverImage";
+import { coverImageSrc } from "../../utils/coverImage";
 import logo from "../../assets/logo.png";
 import styles from "./MainScreen.module.css";
 
@@ -164,13 +165,10 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
   return (
     <div className={styles.screen} ref={screenRef}>
       <div className={styles.heroLayer} aria-hidden="true">
-        <div
+        <PixelBackdrop
+          src={coverImageSrc(heroCover)}
           className={styles.heroBackdrop}
-          style={{
-            ...coverImageStyle(heroCover),
-            "--bg-image": heroCover ? `url("${coverImageSrc(heroCover)}")` : "none",
-            opacity: heroVisible ? 1 : 0,
-          } as React.CSSProperties}
+          style={{ opacity: heroVisible ? 1 : 0 }}
         />
         <div className={styles.heroScrim} />
       </div>
@@ -181,7 +179,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
             <img src={logo} alt="dlemu" className={styles.logo} />
             <nav className={styles.navTabs}>
               <span className={`${styles.navTab} ${styles.navTabActive}`}>
-                <Library size={24} />
+                <LibraryIcon />
                 Библиотека
               </span>
               <button
@@ -191,7 +189,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 onClick={onOpenStore}
                 disabled={modalOpen}
               >
-                <Store size={24} />
+                <StoreIcon />
                 Магазин
               </button>
               <button
@@ -201,7 +199,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                 onClick={onOpenSettings}
                 disabled={modalOpen}
               >
-                <Settings size={24} />
+                <GearIcon />
                 Настройки
               </button>
             </nav>
@@ -312,7 +310,7 @@ export function MainScreen({ onOpenSettings, onOpenStore, onPlay, onCoop }: Main
                   disabled={modalOpen}
                   title={selectedGame.favorite ? "Убрать из избранного" : "Добавить в избранное"}
                 >
-                  <Star size={20} fill={selectedGame.favorite ? "currentColor" : "none"} />
+                  <StarIcon filled={selectedGame.favorite} />
                 </button>
               </div>
             </>
